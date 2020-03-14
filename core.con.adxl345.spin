@@ -14,10 +14,10 @@ CON
 
 ' SPI Configuration
     CPOL                        = 1
-    CLK_DELAY                   = 10
+    CLK_DELAY                   = 1
     MOSI_BITORDER               = 5             'MSBFIRST
     MISO_BITORDER               = 2             'MSBPOST
-    SCK_MAX_FREQ                = 5_000_000
+    SCL_MAX_FREQ                = 5_000_000
 
 ' I2C Configuration
     SLAVE_ADDR                  = $1D << 7

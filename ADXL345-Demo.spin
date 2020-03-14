@@ -15,7 +15,7 @@ CON
     _clkmode    = cfg#_clkmode
     _xinfreq    = cfg#_xinfreq
 
-    CS_PIN      = 12
+    CS_PIN      = 11
     SCL_PIN     = 8
     SDA_PIN     = 9
     SDO_PIN     = 10
