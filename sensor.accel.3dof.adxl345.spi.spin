@@ -22,6 +22,9 @@ CON
     STREAM              = %10
     TRIGGER             = %11
 
+' ADC resolution
+    FULL                = 1
+
 VAR
 
     long _aRes
@@ -61,6 +64,37 @@ PUB Stop
 
     spi.Stop
 
+PUB Defaults
+' Factory defaults
+    AccelADCRes(10)
+    AccelDataRate(100)
+    AccelScale(2)
+    AccelSelfTest(FALSE)
+    FIFOMode(BYPASS)
+    IntMask(%00000000)
+    OpMode(STANDBY)
+
+PUB AccelADCRes(bits) | tmp
+' Set accelerometer ADC resolution, in bits
+'   Valid values:
+'       10: 10bit ADC resolution (AccelScale determines maximum g range and scale factor)
+'       FULL: Output resolution increases with the g range, maintaining a 4mg/LSB scale factor
+'   Any other value polls the chip and returns the current setting
+    tmp := $00
+    readReg(core#DATA_FORMAT, 1, @tmp)
+    case bits
+        10:
+            bits := 0
+        FULL:
+            bits <<= core#FLD_FULL_RES
+        OTHER:
+            tmp >>= core#FLD_FULL_RES
+            return tmp & %1
+
+    tmp &= core#MASK_FULL_RES
+    tmp := (tmp | bits) & core#DATA_FORMAT_MASK
+    writeReg(core#DATA_FORMAT, 1, @tmp)
+
 PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
 ' Reads the Accelerometer output registers
     bytefill(@tmp, $00, 8)
@@ -95,7 +129,9 @@ PUB AccelDataRate(Hz) | tmp
         0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200:
             Hz := lookdownz(Hz: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
         OTHER:
-            return tmp & core#BITS_RATE
+            tmp &= core#BITS_RATE
+            result := lookupz(tmp: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+            return
 
     tmp &= core#MASK_RATE
     tmp := (tmp | Hz) & core#BW_RATE_MASK
@@ -107,7 +143,7 @@ PUB AccelDataReady
     readReg(core#INT_SOURCE, 1, @result)
     result := ((result >> core#FLD_DATA_READY) & %1) * TRUE
 
-PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpX, tmpY, tmpZ, factor
+PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpX, tmpY, tmpZ
 ' Reads the Accelerometer output registers and scales the outputs to micro-g's (1_000_000 = 1.000000 g = 9.8 m/s/s)
     AccelData(@tmpX, @tmpY, @tmpZ)
     long[ptr_x] := tmpX * _aRes
@@ -123,7 +159,10 @@ PUB AccelScale(g) | tmp
     case g
         2, 4, 8, 16:
             g := lookdownz(g: 2, 4, 8, 16)
-            _aRes := 4 * lookupz(g: 2, 4, 8, 16)
+            if AccelADCRes(-2) == FULL                              ' If ADC is set to full-resolution,
+                _aRes := 4_300                                      '   scale factor is always 4.3mg/LSB
+            else                                                    ' else if set to 10-bits,
+                _aRes := lookup(g: 4_300, 8_700, 17_500, 34_500)    '   it depends on the range
             g <<= core#FLD_RANGE
         OTHER:
             tmp &= core#BITS_RANGE
@@ -133,25 +172,24 @@ PUB AccelScale(g) | tmp
     tmp &= core#MASK_RANGE
     tmp := (tmp | g)
     writeReg(core#DATA_FORMAT, 1, @tmp)
-{
+
 PUB AccelSelfTest(enabled) | tmp
-' Enable self-test
+' Enable self-test mode
 '   Valid values: TRUE (-1 or 1), FALSE (0)
 '   Any other value polls the chip and returns the current setting
-'   NOTE: The datasheet specifies the Z-axis should read between 32 and 83 (64 typ) when the self-test is enabled
     tmp := $00
-    readReg(core#MCTL, 1, @tmp)
+    readReg(core#DATA_FORMAT, 1, @tmp)
     case ||enabled
         0, 1:
-            enabled := ||enabled << core#FLD_STON
+            enabled := ||enabled << core#FLD_SELF_TEST
         OTHER:
-            tmp >>= core#FLD_STON
-            result := (tmp & %1) * TRUE
+            tmp >>= core#FLD_SELF_TEST
+            return (tmp & %1) * TRUE
 
-    tmp &= core#MASK_STON
-    tmp := (tmp | enabled)
-    writeReg(core#MCTL, 1, @tmp)
-}
+    tmp &= core#MASK_SELF_TEST
+    tmp := (tmp | enabled) & core#DATA_FORMAT_MASK
+    writeReg(core#DATA_FORMAT, 1, @tmp)
+
 {
 PUB Calibrate | tmpX, tmpY, tmpZ
 ' Calibrate the accelerometer
@@ -195,7 +233,18 @@ PUB FIFOMode(mode) | tmp
     writeReg(core#FIFO_CTL, 1, @tmp)
 
 PUB IntMask(mask) | tmp
-
+' Set interrupt mask
+'   Bits:   76543210
+'       7: Data Ready (Always enabled, regardless of setting)
+'       6: Single-tap
+'       5: Double-tap
+'       4: Activity
+'       3: Inactivity
+'       2: Free-fall
+'       1: Watermark (Always enabled, regardless of setting)
+'       0: Overrun (Always enabled, regardless of setting)
+'   Valid values: %00000000..%11111111
+'   Any other value polls the chip and returns the current setting
     readReg(core#INT_ENABLE, 1, @tmp)
     case mask
         %0000_0000..%1111_1111:
@@ -235,7 +284,7 @@ PRI readReg(reg, nr_bytes, buff_addr) | i
     io.Low(_CS)
     spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg | core#R)
 
-    repeat i from nr_bytes-1 to 0
+    repeat i from 0 to nr_bytes-1
         byte[buff_addr][i] := spi.SHIFTIN(_MISO, _SCK, core#MISO_BITORDER, 8)
     io.High(_CS)
 

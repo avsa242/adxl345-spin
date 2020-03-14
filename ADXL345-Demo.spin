@@ -44,18 +44,41 @@ PUB Main | dispmode
 
     Setup
 
-    accel.AccelDataRate(200)
-    accel.FIFOMode(accel#BYPASS)
-    accel.IntMask(%1000_0000)
-    accel.OpMode(accel#MEASURE)
-'    accel.AccelScale(8)
+    accel.AccelADCRes(accel#FULL)                           ' 10, accel#FULL (dynamic, based on AccelScale)
+    accel.AccelScale(2)                                     ' 2, 4, 8, 16 (g's)
+    accel.AccelDataRate(800)                                ' 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5,
+'                                                               25, 50, 100, 200, 400, 800, 1600, 3200
+    accel.FIFOMode(accel#BYPASS)                            ' accel#BYPASS, accel#FIFO, accel#STREAM, accel#TRIGGER
+    accel.OpMode(accel#MEASURE)                             ' accel#STANDBY, accel#MEASURE
+    accel.IntMask(%0000_0000)                               ' 0, 1 each bit
+    accel.AccelSelfTest(FALSE)                              ' FALSE, TRUE
     ser.HideCursor
     dispmode := 0
+
+    ser.position(0, 3)
+    ser.str(string("AccelScale: "))
+    ser.dec(accel.AccelScale(-2))
+    ser.newline
+    ser.str(string("AccelADCRes: "))
+    ser.dec(accel.AccelADCRes(-2))
+    ser.newline
+    ser.str(string("AccelDataRate: "))
+    ser.dec(accel.AccelDataRate(-2))
+    ser.newline
+    ser.str(string("FIFOMode: "))
+    ser.dec(accel.FIFOMode(-2))
+    ser.newline
+    ser.str(string("IntMask: "))
+    ser.bin(accel.IntMask(-2), 8)
+    ser.newline
+    ser.str(string("AccelSelfTest: "))
+    ser.dec(accel.AccelSelfTest(-2))
+    ser.newline
 
     repeat
         case ser.RxCheck
             "q", "Q":
-                ser.Position(0, 5)
+                ser.Position(0, 12)
                 ser.str(string("Halting"))
                 accel.Stop
                 time.MSleep(5)
@@ -64,16 +87,16 @@ PUB Main | dispmode
 '            "c", "C":
 '                Calibrate
             "r", "R":
-                ser.Position(0, 3)
+                ser.Position(0, 10)
                 repeat 2
                     ser.ClearLine(ser#CLR_CUR_TO_END)
                     ser.Newline
                 dispmode ^= 1
 
-        ser.Position (0, 3)
+        ser.Position (0, 10)
         case dispmode
             0: AccelRaw
-'            1: AccelCalc
+            1: AccelCalc
 
     ser.ShowCursor
     FlashLED(LED, 100)
@@ -115,6 +138,7 @@ PUB Setup
     ser.Str(string("Serial terminal started", ser#CR, ser#LF))
     if _accel_cog := accel.Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY)
         ser.Str (string("ADXL345 driver started", ser#CR, ser#LF))
+        accel.Defaults
     else
         ser.Str (string("ADXL345 driver failed to start - halting", ser#CR, ser#LF))
         accel.Stop
