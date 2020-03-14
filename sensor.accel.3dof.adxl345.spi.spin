@@ -12,9 +12,19 @@
 
 CON
 
+' Operating modes
+    STANDBY             = 0
+    MEASURE             = 1
+
+' FIFO modes
+    BYPASS              = %00
+    FIFO                = %01
+    STREAM              = %10
+    TRIGGER             = %11
 
 VAR
 
+    long _aRes
     byte _CS, _MOSI, _MISO, _SCK
 
 OBJ
@@ -31,15 +41,15 @@ PUB Start(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN) : okay
 
     okay := Startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN, core#CLK_DELAY)
 
-PUB Startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN, SCK_DELAY): okay
-    if lookdown(CS_PIN: 0..31) and lookdown(SCK_PIN: 0..31) and lookdown(MOSI_PIN: 0..31) and lookdown(MISO_PIN: 0..31)
-        if SCK_DELAY => 1
-            if okay := spi.start (SCK_DELAY, core#CPOL)         'SPI Object Started?
+PUB Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY): okay
+    if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
+        if SCL_DELAY => 1
+            if okay := spi.start (SCL_DELAY, core#CPOL)         'SPI Object Started?
                 time.MSleep (1)
                 _CS := CS_PIN
-                _MOSI := MOSI_PIN
-                _MISO := MISO_PIN
-                _SCK := SCK_PIN
+                _MOSI := SDA_PIN
+                _MISO := SDO_PIN
+                _SCK := SCL_PIN
 
                 io.High(_CS)
                 io.Output(_CS)
@@ -51,20 +61,181 @@ PUB Stop
 
     spi.Stop
 
+PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
+' Reads the Accelerometer output registers
+    bytefill(@tmp, $00, 8)
+    readReg(core#DATAX0, 6, @tmp)
+
+    long[ptr_x] := tmp.word[0]
+    long[ptr_y] := tmp.word[1]
+    long[ptr_z] := tmp.word[2]
+
+    if long[ptr_x] > 32767
+        long[ptr_x] := long[ptr_x]-65536
+    if long[ptr_y] > 32767
+        long[ptr_y] := long[ptr_y]-65536
+    if long[ptr_z] > 32767
+        long[ptr_z] := long[ptr_z]-65536
+
+PUB AccelDataOverrun
+' Indicates previously acquired data has been overwritten
+'   Returns: TRUE (-1) if data has overflowed/been overwritten, FALSE otherwise
+    readReg(core#INT_SOURCE, 1, @result)
+    result := (result & %1) * TRUE
+
+PUB AccelDataRate(Hz) | tmp
+' Set accelerometer output data rate, in Hz
+'   Valid values: See case table below
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Values containing an underscore represent fractional settings.
+'       Examples: 0_10 == 0.1Hz, 12_5 == 12.5Hz
+    tmp := $00
+    readReg(core#BW_RATE, 1, @tmp)
+    case Hz
+        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200:
+            Hz := lookdownz(Hz: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+        OTHER:
+            return tmp & core#BITS_RATE
+
+    tmp &= core#MASK_RATE
+    tmp := (tmp | Hz) & core#BW_RATE_MASK
+    writeReg(core#BW_RATE, 1, @tmp)
+
+PUB AccelDataReady
+' Indicates data is ready
+'   Returns: TRUE (-1) if data ready, FALSE otherwise
+    readReg(core#INT_SOURCE, 1, @result)
+    result := ((result >> core#FLD_DATA_READY) & %1) * TRUE
+
+PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpX, tmpY, tmpZ, factor
+' Reads the Accelerometer output registers and scales the outputs to micro-g's (1_000_000 = 1.000000 g = 9.8 m/s/s)
+    AccelData(@tmpX, @tmpY, @tmpZ)
+    long[ptr_x] := tmpX * _aRes
+    long[ptr_y] := tmpY * _aRes
+    long[ptr_z] := tmpZ * _aRes
+
+PUB AccelScale(g) | tmp
+' Set measurement range of the accelerometer, in g's
+'   Valid values: 2, 4, 8, 16
+'   Any other value polls the chip and returns the current setting
+    tmp := $00
+    readReg(core#DATA_FORMAT, 1, @tmp)
+    case g
+        2, 4, 8, 16:
+            g := lookdownz(g: 2, 4, 8, 16)
+            _aRes := 4 * lookupz(g: 2, 4, 8, 16)
+            g <<= core#FLD_RANGE
+        OTHER:
+            tmp &= core#BITS_RANGE
+            result := lookupz(tmp: 2, 4, 8, 16)
+            return
+
+    tmp &= core#MASK_RANGE
+    tmp := (tmp | g)
+    writeReg(core#DATA_FORMAT, 1, @tmp)
+{
+PUB AccelSelfTest(enabled) | tmp
+' Enable self-test
+'   Valid values: TRUE (-1 or 1), FALSE (0)
+'   Any other value polls the chip and returns the current setting
+'   NOTE: The datasheet specifies the Z-axis should read between 32 and 83 (64 typ) when the self-test is enabled
+    tmp := $00
+    readReg(core#MCTL, 1, @tmp)
+    case ||enabled
+        0, 1:
+            enabled := ||enabled << core#FLD_STON
+        OTHER:
+            tmp >>= core#FLD_STON
+            result := (tmp & %1) * TRUE
+
+    tmp &= core#MASK_STON
+    tmp := (tmp | enabled)
+    writeReg(core#MCTL, 1, @tmp)
+}
+{
+PUB Calibrate | tmpX, tmpY, tmpZ
+' Calibrate the accelerometer
+'   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
+    repeat 3
+        AccelData(@tmpX, @tmpY, @tmpZ)
+        tmpX += 2 * -tmpX
+        tmpY += 2 * -tmpY
+        tmpZ += 2 * -(tmpZ-(_aRes/1000))
+
+    writeReg(core#XOFFL, 2, @tmpX)
+    writeReg(core#YOFFL, 2, @tmpY)
+    writeReg(core#ZOFFL, 2, @tmpZ)
+    time.MSleep(200)
+}
 PUB DeviceID
 ' Read device identification
     readReg(core#DEVID, 1, @result)
 
+PUB FIFOMode(mode) | tmp
+' Set FIFO operation mode
+'   Valid values:
+'      *BYPASS (%00): Don't use the FIFO functionality
+'       FIFO (%01): FIFO enabled (stops collecting data when full, but device continues to operate)
+'       STREAM (%10): FIFO enabled (continues accumulating samples; holds latest 32 samples)
+'       TRIGGER (%11): FIFO enabled (holds latest 32 samples. When trigger event occurs, the last n samples,
+'           set by FIFOSamples(), are kept. The FIFO then collects samples as long as it isn't full.
+'   Any other value polls the chip and returns the current setting
+    tmp := $00
+    readReg(core#FIFO_CTL, 1, @tmp)
+    case mode
+        BYPASS, FIFO, STREAM, TRIGGER:
+            mode <<= core#FLD_FIFO_MODE
+        OTHER:
+            result := tmp >> core#FLD_FIFO_MODE
+            result &= core#BITS_FIFO_MODE
+            return
+
+    tmp &= core#MASK_FIFO_MODE
+    tmp := (tmp | mode) & core#FIFO_CTL_MASK
+    writeReg(core#FIFO_CTL, 1, @tmp)
+
+PUB IntMask(mask) | tmp
+
+    readReg(core#INT_ENABLE, 1, @tmp)
+    case mask
+        %0000_0000..%1111_1111:
+        OTHER:
+            return tmp
+
+    writeReg(core#INT_ENABLE, 1, @mask)
+
+PUB OpMode(mode) | tmp
+' Set operating mode
+'   Valid values:
+'       STANDBY (0): Standby
+'       MEASURE (1): Measurement mode
+'   Any other value polls the chip and returns the current setting
+    tmp := $00
+    readReg(core#POWER_CTL, 1, @tmp)
+    case mode
+        STANDBY, MEASURE:
+            mode <<= core#FLD_MEASURE
+        OTHER:
+            result := (tmp >> core#FLD_MEASURE) & %1
+            return
+
+    tmp &= core#MASK_MEASURE
+    tmp := (tmp | mode) & core#POWER_CTL_MASK
+    writeReg(core#POWER_CTL, 1, @tmp)
+
 PRI readReg(reg, nr_bytes, buff_addr) | i
 ' Read nr_bytes from register 'reg' to address 'buff_addr'
     case reg
-        $00, $1D..$39:
+        $00, $1D..$31, $38, $39:
+        $32..37:                                    ' If reading the accelerometer data registers,
+            reg |= core#MB                          '   set the multiple-byte transaction bit
         OTHER:
+            return
 
     io.Low(_CS)
     spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg | core#R)
 
-    repeat i from 0 to nr_bytes-1
+    repeat i from nr_bytes-1 to 0
         byte[buff_addr][i] := spi.SHIFTIN(_MISO, _SCK, core#MISO_BITORDER, 8)
     io.High(_CS)
 
@@ -77,8 +248,7 @@ PRI writeReg(reg, nr_bytes, buff_addr) | tmp
             spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg)
 
             repeat tmp from 0 to nr_bytes-1
-                spi.SHIFTOUT(_MOSI, _SCK, core#MISO_BITORDER, 8, byte[buff_addr][tmp])
-
+                spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, byte[buff_addr][tmp])
             io.High(_CS)
         OTHER:
             return

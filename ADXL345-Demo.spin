@@ -12,29 +12,117 @@
 
 CON
 
-    _clkmode = cfg#_clkmode
-    _xinfreq = cfg#_xinfreq
+    _clkmode    = cfg#_clkmode
+    _xinfreq    = cfg#_xinfreq
+
+    CS_PIN      = 12
+    SCL_PIN     = 8
+    SDA_PIN     = 9
+    SDO_PIN     = 10
+    SCL_DELAY   = 1
+
+    LED         = cfg#LED1
+    SER_RX      = 31
+    SER_TX      = 30
+    SER_BAUD    = 115_200
 
 OBJ
 
-    cfg   : "core.con.boardcfg.flip"
-    ser   : "com.serial.terminal.ansi"
-    time  : "time"
+    cfg     : "core.con.boardcfg.flip"
+    ser     : "com.serial.terminal.ansi"
+    time    : "time"
+    io      : "io"
+    int     : "string.integer"
+    accel   : "sensor.accel.3dof.adxl345.spi"
 
 VAR
 
-    byte _ser_cog
+    long _overruns
+    byte _ser_cog, _accel_cog
 
-PUB Main
+PUB Main | dispmode
 
     Setup
+
+    accel.AccelDataRate(200)
+    accel.FIFOMode(accel#BYPASS)
+    accel.IntMask(%1000_0000)
+    accel.OpMode(accel#MEASURE)
+'    accel.AccelScale(8)
+    ser.HideCursor
+    dispmode := 0
+
+    repeat
+        case ser.RxCheck
+            "q", "Q":
+                ser.Position(0, 5)
+                ser.str(string("Halting"))
+                accel.Stop
+                time.MSleep(5)
+                ser.Stop
+                quit
+'            "c", "C":
+'                Calibrate
+            "r", "R":
+                ser.Position(0, 3)
+                repeat 2
+                    ser.ClearLine(ser#CLR_CUR_TO_END)
+                    ser.Newline
+                dispmode ^= 1
+
+        ser.Position (0, 3)
+        case dispmode
+            0: AccelRaw
+'            1: AccelCalc
+
+    ser.ShowCursor
+    FlashLED(LED, 100)
+
+PUB AccelCalc | ax, ay, az
+
+    repeat until accel.AccelDataReady
+    accel.AccelG (@ax, @ay, @az)
+    if accel.AccelDataOverrun
+        _overruns++
+    ser.Str (string("Accel micro-g: "))
+    ser.Str (int.DecPadded (ax, 10))
+    ser.Str (int.DecPadded (ay, 10))
+    ser.Str (int.DecPadded (az, 10))
+    ser.Newline
+    ser.Str (string("Overruns: "))
+    ser.Dec (_overruns)
+
+PUB AccelRaw | ax, ay, az
+
+    repeat until accel.AccelDataReady
+    accel.AccelData (@ax, @ay, @az)
+    if accel.AccelDataOverrun
+        _overruns++
+    ser.Str (string("Raw Accel: "))
+    ser.Str (int.DecPadded (ax, 7))
+    ser.Str (int.DecPadded (ay, 7))
+    ser.Str (int.DecPadded (az, 7))
+
+    ser.Newline
+    ser.Str (string("Overruns: "))
+    ser.Dec (_overruns)
 
 PUB Setup
 
     repeat until _ser_cog := ser.Start (115_200)
+    time.MSleep(30)
     ser.Clear
-    ser.Str(string("Serial terminal started", ser#NL))
+    ser.Str(string("Serial terminal started", ser#CR, ser#LF))
+    if _accel_cog := accel.Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY)
+        ser.Str (string("ADXL345 driver started", ser#CR, ser#LF))
+    else
+        ser.Str (string("ADXL345 driver failed to start - halting", ser#CR, ser#LF))
+        accel.Stop
+        time.MSleep (5)
+        ser.Stop
+        FlashLED(LED, 500)
 
+#include "lib.utility.spin"
 
 DAT
 {
