@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2020
     Started Mar 14, 2020
-    Updated Mar 14, 2020
+    Updated Mar 15, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -114,6 +114,7 @@ PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
 PUB AccelDataOverrun
 ' Indicates previously acquired data has been overwritten
 '   Returns: TRUE (-1) if data has overflowed/been overwritten, FALSE otherwise
+    result := $00
     readReg(core#INT_SOURCE, 1, @result)
     result := (result & %1) * TRUE
 
@@ -140,6 +141,7 @@ PUB AccelDataRate(Hz) | tmp
 PUB AccelDataReady
 ' Indicates data is ready
 '   Returns: TRUE (-1) if data ready, FALSE otherwise
+    result := $00
     readReg(core#INT_SOURCE, 1, @result)
     result := ((result >> core#FLD_DATA_READY) & %1) * TRUE
 
@@ -207,6 +209,7 @@ PUB Calibrate | tmpX, tmpY, tmpZ
 }
 PUB DeviceID
 ' Read device identification
+    result := $00
     readReg(core#DEVID, 1, @result)
 
 PUB FIFOMode(mode) | tmp
@@ -245,6 +248,7 @@ PUB IntMask(mask) | tmp
 '       0: Overrun (Always enabled, regardless of setting)
 '   Valid values: %00000000..%11111111
 '   Any other value polls the chip and returns the current setting
+    tmp := $00
     readReg(core#INT_ENABLE, 1, @tmp)
     case mask
         %0000_0000..%1111_1111:
@@ -272,7 +276,7 @@ PUB OpMode(mode) | tmp
     tmp := (tmp | mode) & core#POWER_CTL_MASK
     writeReg(core#POWER_CTL, 1, @tmp)
 
-PRI readReg(reg, nr_bytes, buff_addr) | i
+PRI readReg(reg, nr_bytes, buff_addr) | tmp
 ' Read nr_bytes from register 'reg' to address 'buff_addr'
     case reg
         $00, $1D..$31, $38, $39:
@@ -284,8 +288,8 @@ PRI readReg(reg, nr_bytes, buff_addr) | i
     io.Low(_CS)
     spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg | core#R)
 
-    repeat i from 0 to nr_bytes-1
-        byte[buff_addr][i] := spi.SHIFTIN(_MISO, _SCK, core#MISO_BITORDER, 8)
+    repeat tmp from 0 to nr_bytes-1
+        byte[buff_addr][tmp] := spi.SHIFTIN(_MISO, _SCK, core#MISO_BITORDER, 8)
     io.High(_CS)
 
 PRI writeReg(reg, nr_bytes, buff_addr) | tmp

@@ -5,7 +5,7 @@
     Description: Demo of the ADXL345 driver
     Copyright (c) 2020
     Started Mar 14, 2020
-    Updated Mar 14, 2020
+    Updated Mar 15, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -32,7 +32,7 @@ CON
     SCL_PIN         = 30
     SDA_PIN         = 28
     SDO_PIN         = 26
-    SCL_HZ          = 1_000
+    SCL_HZ          = 1_000_000
 
 OBJ
 
@@ -54,15 +54,14 @@ PUB Main | dispmode
 
     accel.OpMode(accel#STANDBY)
     accel.AccelADCRes(accel#FULL)                           ' 10, accel#FULL (dynamic, based on AccelScale)
-    accel.AccelScale(4)                                     ' 2, 4, 8, 16 (g's)
-    accel.AccelDataRate(100)                                ' 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5,
+    accel.AccelScale(2)                                     ' 2, 4, 8, 16 (g's)
+    accel.AccelDataRate(50)                                 ' 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5,
 '                                                               25, 50, 100, 200, 400, 800, 1600, 3200
     accel.FIFOMode(accel#BYPASS)                            ' accel#BYPASS, accel#FIFO, accel#STREAM, accel#TRIGGER
     accel.IntMask(%0000_0000)                               ' 0, 1 each bit
     accel.AccelSelfTest(FALSE)                              ' FALSE, TRUE
     accel.OpMode(accel#MEASURE)                             ' accel#STANDBY, accel#MEASURE
     ser.HideCursor
-    dumpregs
 
     dispmode := 0
 
@@ -99,17 +98,6 @@ PUB Main | dispmode
     ser.ShowCursor
     FlashLED(LED, 100)
 
-PUB dumpregs | i, tmp
-
-    repeat
-        ser.position(0, 5)
-        repeat i from $00 to $39
-            if i >0 and i < $1D
-                next
-            result := $00
-            accel.readReg(i, 1, @result)
-            ser.printf("reg %x: %x\n", i, result)
-
 PUB AccelCalc | ax, ay, az
 
     repeat until accel.AccelDataReady
@@ -117,7 +105,6 @@ PUB AccelCalc | ax, ay, az
     if accel.AccelDataOverrun
         _overruns++
     ser.Str (string("Accel micro-g: "))
-'   ser.printf("Accel micro-g: %s %s %s", int.DecPadded(ax, 10), int.DecPadded(ay, 10), int.DecPadded(az, 10))
     ser.Str (int.DecPadded (ax, 10))
     ser.Str (int.DecPadded (ay, 10))
     ser.Str (int.DecPadded (az, 10))
@@ -131,7 +118,6 @@ PUB AccelRaw | ax, ay, az
     if accel.AccelDataOverrun
         _overruns++
     ser.Str (string("Raw Accel: "))
-'   ser.printf("Raw Accel: %s %s %s", ax, ay, az)
     ser.Str (int.DecPadded (ax, 7))
     ser.Str (int.DecPadded (ay, 7))
     ser.Str (int.DecPadded (az, 7))
@@ -142,13 +128,13 @@ PUB AccelRaw | ax, ay, az
 
 PUB Setup
 
-    clkset(ENAFREQ, CLOCKFREQ, XSEL)
+    clkset(ENAFREQ, CLOCKFREQ)
     repeat until _ser_cog := ser.StartRXTX (SER_RX, SER_TX, 0, SER_BAUD)
     ser.Clear
     ser.printf("Serial terminal started\n")
     if _accel_cog := accel.Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_HZ)
         ser.printf("ADXL345 driver started\n")
-'        accel.Defaults
+        accel.Defaults
     else
         ser.printf("ADXL345 driver failed to start - halting\n")
         accel.Stop
