@@ -2,10 +2,10 @@
     --------------------------------------------
     Filename: ADXL345-Demo.spin
     Author: Jesse Burt
-    Description: Demo of the ADXL345 driver (PST-compatible version)
+    Description: Demo of the ADXL345 driver
     Copyright (c) 2020
-    Started Mar 19, 2020
-    Updated Mar 19, 2020
+    Started Mar 14, 2020
+    Updated Mar 14, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -15,22 +15,21 @@ CON
     _clkmode    = cfg#_clkmode
     _xinfreq    = cfg#_xinfreq
 
-' User-modifiable constants
-    LED         = cfg#LED1
-    SER_RX      = 31
-    SER_TX      = 30
-    SER_BAUD    = 115_200
-
     CS_PIN      = 11
     SCL_PIN     = 15
     SDA_PIN     = 14
     SDO_PIN     = 13
     SCL_DELAY   = 1
 
+    LED         = cfg#LED1
+    SER_RX      = 31
+    SER_TX      = 30
+    SER_BAUD    = 115_200
+
 OBJ
 
     cfg     : "core.con.boardcfg.flip"
-    ser     : "com.serial.terminal"
+    ser     : "com.serial.terminal.ansi"
     time    : "time"
     io      : "io"
     int     : "string.integer"
@@ -53,6 +52,7 @@ PUB Main | dispmode
     accel.OpMode(accel#MEASURE)                             ' accel#STANDBY, accel#MEASURE
     accel.IntMask(%0000_0000)                               ' 0, 1 each bit
     accel.AccelSelfTest(FALSE)                              ' FALSE, TRUE
+    ser.HideCursor
     dispmode := 0
 
     ser.position(0, 3)
@@ -89,7 +89,7 @@ PUB Main | dispmode
             "r", "R":
                 ser.Position(0, 10)
                 repeat 2
-                    ser.ClearLine
+                    ser.ClearLine(ser#CLR_CUR_TO_END)
                     ser.Newline
                 dispmode ^= 1
 
@@ -98,6 +98,7 @@ PUB Main | dispmode
             0: AccelRaw
             1: AccelCalc
 
+    ser.ShowCursor
     FlashLED(LED, 100)
 
 PUB AccelCalc | ax, ay, az
@@ -131,26 +132,21 @@ PUB AccelRaw | ax, ay, az
 
 PUB Setup
 
-    repeat until _ser_cog := ser.StartRXTX (SER_RX, SER_TX, 0, SER_BAUD)
+    repeat until _ser_cog := ser.Start (115_200)
     time.MSleep(30)
     ser.Clear
-    ser.Str(string("Serial terminal started", ser#NL))
+    ser.Str(string("Serial terminal started", ser#CR, ser#LF))
     if _accel_cog := accel.Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY)
-        ser.Str (string("ADXL345 driver started", ser#NL))
+        ser.Str (string("ADXL345 driver started", ser#CR, ser#LF))
         accel.Defaults
     else
-        ser.Str (string("ADXL345 driver failed to start - halting", ser#NL))
+        ser.Str (string("ADXL345 driver failed to start - halting", ser#CR, ser#LF))
         accel.Stop
         time.MSleep (5)
         ser.Stop
         FlashLED(LED, 500)
 
-PUB FlashLED(led_pin, delay_ms)
-
-    io.Output(led_pin)
-    repeat
-        io.Toggle (led_pin)
-        time.MSleep (delay_ms)
+#include "lib.utility.spin"
 
 DAT
 {
