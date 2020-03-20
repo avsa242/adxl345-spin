@@ -25,6 +25,11 @@ CON
 ' ADC resolution
     FULL                = 1
 
+' Axis symbols for use throughout the driver
+    X_AXIS              = 0
+    Y_AXIS              = 1
+    Z_AXIS              = 2
+
 VAR
 
     long _aRes
@@ -94,6 +99,14 @@ PUB AccelADCRes(bits) | tmp
     tmp &= core#MASK_FULL_RES
     tmp := (tmp | bits) & core#DATA_FORMAT_MASK
     writeReg(core#DATA_FORMAT, 1, @tmp)
+
+PUB AccelClearOffsets
+' Clear calibration offsets set in the accelerometer
+'   NOTE: The offsets don't survive a power-loss. This is intended for when the microcontroller is warm-booted or the driver is restarted, where no power loss to the sensor has occurred.
+    result := $0000
+    writeReg(core#OFSX, 2, @result)
+    writeReg(core#OFSY, 2, @result)
+    writeReg(core#OFSZ, 2, @result)
 
 PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
 ' Reads the Accelerometer output registers
@@ -192,21 +205,34 @@ PUB AccelSelfTest(enabled) | tmp
     tmp := (tmp | enabled) & core#DATA_FORMAT_MASK
     writeReg(core#DATA_FORMAT, 1, @tmp)
 
-{
-PUB Calibrate | tmpX, tmpY, tmpZ
+PUB Calibrate | axis, orig_state, tmp[3], samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
-    repeat 3
-        AccelData(@tmpX, @tmpY, @tmpZ)
-        tmpX += 2 * -tmpX
-        tmpY += 2 * -tmpY
-        tmpZ += 2 * -(tmpZ-(_aRes/1000))
+    longfill(@axis, $00000000, 7)                           ' Initialize all variables to 0
+    samples := 10
+    orig_state.byte[0] := AccelADCRes(-2)                   ' Save the state of these settings
+    orig_state.byte[1] := AccelScale(-2)                    '   so we can restore them after calibration
+    orig_state.word[1] := AccelDataRate(-2)
 
-    writeReg(core#XOFFL, 2, @tmpX)
-    writeReg(core#YOFFL, 2, @tmpY)
-    writeReg(core#ZOFFL, 2, @tmpZ)
-    time.MSleep(200)
-}
+    AccelADCRes(FULL)                                       ' Set sensor to full ADC resolution, +/-2g range, 100Hz data rate
+    AccelScale(2)                                           '
+    AccelDataRate(100)                                      '
+    scale := 15_6000 / 4_3                                  ' Calibration offset registers are only 8-bit; this is the conversion scale (15.6mg per LSB / 4.3mg per LSB)
+
+    repeat samples                                          ' Get 10 samples of measurements and average them together
+        AccelData(@tmp[X_AXIS], @tmp[Y_AXIS], @tmp[Z_AXIS]) '
+        tmp[X_AXIS] += -(tmp[X_AXIS]*1_000)                 ' - Intermediate calculations have to be scaled up
+        tmp[Y_AXIS] += -(tmp[Y_AXIS]*1_000)                 ' -   to preserve accuracy
+        tmp[Z_AXIS] += -((tmp[Z_AXIS]*1_000)-256_000)       ' - Z-axis experiences 1g during calibration, so cancel it out
+
+    repeat axis from X_AXIS to Z_AXIS                       ' Write the offsets to the sensor (volatile memory)
+        tmp[axis] := (tmp[AXIS] / samples) / scale
+        writeReg(core#OFSX+axis, 2, @tmp[axis])
+
+    AccelADCRes(orig_state.byte[0])                         ' Restore the settings prior to calibration
+    AccelScale(orig_state.byte[1])
+    AccelDataRate(orig_state.word[1])
+
 PUB DeviceID
 ' Read device identification
     result := $00

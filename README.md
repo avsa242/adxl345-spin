@@ -33,7 +33,7 @@ This is a P8X32A/Propeller, P2X8C4M64P/Propeller 2 driver object for the Analog 
 
 ## TODO
 
-- [ ] Add calibration/offset support
+- [x] Add calibration/offset support
 - [ ] Add explicit sleep and auto-sleep support
 - [ ] Add low-power mode support
 - [ ] Add 3-wire SPI driver variant
