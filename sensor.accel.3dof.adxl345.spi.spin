@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2020
     Started Mar 14, 2020
-    Updated Mar 15, 2020
+    Updated Mar 20, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -164,7 +164,7 @@ PUB AccelScale(g) | tmp
             if AccelADCRes(-2) == FULL                              ' If ADC is set to full-resolution,
                 _aRes := 4_300                                      '   scale factor is always 4.3mg/LSB
             else                                                    ' else if set to 10-bits,
-                _aRes := lookup(g: 4_300, 8_700, 17_500, 34_500)    '   it depends on the range
+                _aRes := lookupz(g: 4_300, 8_700, 17_500, 34_500)   '   it depends on the range
             g <<= core#FLD_RANGE
         OTHER:
             tmp &= core#BITS_RANGE
