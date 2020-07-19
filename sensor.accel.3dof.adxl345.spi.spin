@@ -5,12 +5,24 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2020
     Started Mar 14, 2020
-    Updated Mar 20, 2020
+    Updated Jul 19, 2020
     See end of file for terms of use.
     --------------------------------------------
 }
 
 CON
+
+' Indicate to user apps how many Degrees of Freedom each sub-sensor has
+'   (also imply whether or not it has a particular sensor)
+    ACCEL_DOF           = 3
+    GYRO_DOF            = 0
+    MAG_DOF             = 0
+    BARO_DOF            = 0
+    DOF                 = ACCEL_DOF + GYRO_DOF + MAG_DOF + BARO_DOF
+
+    R                   = 0
+    W                   = 1
+
 
 ' Operating modes
     STANDBY             = 0
@@ -33,6 +45,7 @@ CON
 VAR
 
     long _aRes
+    long _abiasraw[3]
     byte _CS, _MOSI, _MISO, _SCK
 
 OBJ
@@ -100,6 +113,40 @@ PUB AccelADCRes(bits) | tmp
     tmp := (tmp | bits) & core#DATA_FORMAT_MASK
     writeReg(core#DATA_FORMAT, 1, @tmp)
 
+PUB AccelAxisEnabled(xyz_mask)
+' Dummy method
+
+PUB AccelBias(axBias, ayBias, azBias, rw)
+' Read or write/manually set accelerometer calibration offset values
+'   Valid values:
+'       rw:
+'           R (0), W (1)
+'       axBias, ayBias, azBias:
+'           -128..127
+'   NOTE: When rw is set to READ, axBias, ayBias and azBias must be addresses of respective variables to hold the returned calibration offset values.
+    case rw
+        R:
+            long[axBias] := _aBiasRaw[X_AXIS]
+            long[ayBias] := _aBiasRaw[Y_AXIS]
+            long[azBias] := _aBiasRaw[Z_AXIS]
+
+        W:
+            case axBias
+                -128..127:
+                    _aBiasRaw[X_AXIS] := axBias
+                OTHER:
+
+            case ayBias
+                -128..127:
+                    _aBiasRaw[Y_AXIS] := ayBias
+                OTHER:
+
+            case azBias
+                -128..127:
+                    _aBiasRaw[Z_AXIS] := azBias
+                OTHER:
+
+
 PUB AccelClearOffsets
 ' Clear calibration offsets set in the accelerometer
 '   NOTE: The offsets don't survive a power-loss. This is intended for when the microcontroller is warm-booted or the driver is restarted, where no power loss to the sensor has occurred.
@@ -113,16 +160,9 @@ PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
     bytefill(@tmp, $00, 8)
     readReg(core#DATAX0, 6, @tmp)
 
-    long[ptr_x] := tmp.word[0]
-    long[ptr_y] := tmp.word[1]
-    long[ptr_z] := tmp.word[2]
-
-    if long[ptr_x] > 32767
-        long[ptr_x] := long[ptr_x]-65536
-    if long[ptr_y] > 32767
-        long[ptr_y] := long[ptr_y]-65536
-    if long[ptr_z] > 32767
-        long[ptr_z] := long[ptr_z]-65536
+    long[ptr_x] := ~~tmp.word[0]
+    long[ptr_y] := ~~tmp.word[1]
+    long[ptr_z] := ~~tmp.word[2]
 
 PUB AccelDataOverrun
 ' Indicates previously acquired data has been overwritten
@@ -226,12 +266,20 @@ PUB Calibrate | axis, orig_state, tmp[3], samples, scale
         tmp[Z_AXIS] += -((tmp[Z_AXIS]*1_000)-256_000)       ' - Z-axis experiences 1g during calibration, so cancel it out
 
     repeat axis from X_AXIS to Z_AXIS                       ' Write the offsets to the sensor (volatile memory)
-        tmp[axis] := (tmp[AXIS] / samples) / scale
+        _abiasraw[axis] := tmp[AXIS] / samples
+        tmp[axis] := _abiasraw[axis] / scale
         writeReg(core#OFSX+axis, 2, @tmp[axis])
 
     AccelADCRes(orig_state.byte[0])                         ' Restore the settings prior to calibration
     AccelScale(orig_state.byte[1])
     AccelDataRate(orig_state.word[1])
+
+PUB CalibrateMag(samples)
+' Dummy method
+
+PUB CalibrateXLG
+
+    Calibrate
 
 PUB DeviceID
 ' Read device identification
@@ -261,6 +309,27 @@ PUB FIFOMode(mode) | tmp
     tmp := (tmp | mode) & core#FIFO_CTL_MASK
     writeReg(core#FIFO_CTL, 1, @tmp)
 
+PUB GyroAxisEnabled(xyzmask)
+' Dummy method
+
+PUB GyroBias(x, y, z, rw)
+' Dummy method
+
+PUB GyroData(x, y, z)
+' Dummy method
+
+PUB GyroDataReady
+' Dummy method
+
+PUB GyroDPS(x, y, z)
+' Dummy method
+
+PUB GyroScale(scale)
+' Dummy method
+
+PUB Interrupt
+' Dummy method
+
 PUB IntMask(mask) | tmp
 ' Set interrupt mask
 '   Bits:   76543210
@@ -283,6 +352,24 @@ PUB IntMask(mask) | tmp
 
     writeReg(core#INT_ENABLE, 1, @mask)
 
+PUB MagBias(x, y, z, rw)
+' Dummy method
+
+PUB MagData(x, y, z)
+' Dummy method
+
+PUB MagDataRate(hz)
+' Dummy method
+
+PUB MagDataReady
+' Dummy method
+
+PUB MagGauss(x, y, z)
+' Dummy method
+
+PUB MagScale(scale)
+' Dummy method
+
 PUB OpMode(mode) | tmp
 ' Set operating mode
 '   Valid values:
@@ -302,29 +389,29 @@ PUB OpMode(mode) | tmp
     tmp := (tmp | mode) & core#POWER_CTL_MASK
     writeReg(core#POWER_CTL, 1, @tmp)
 
-PRI readReg(reg, nr_bytes, buff_addr) | tmp
-' Read nr_bytes from register 'reg' to address 'buff_addr'
-    case reg
+PRI readReg(reg_nr, nr_bytes, buff_addr): result | tmp
+' Read nr_bytes from register 'reg_nr' to address 'buff_addr'
+    case reg_nr
         $00, $1D..$31, $38, $39:
-        $32..37:                                    ' If reading the accelerometer data registers,
-            reg |= core#MB                          '   set the multiple-byte transaction bit
+        $32..$37:                                   ' If reading the accelerometer data registers,
+            reg_nr |= core#MB                       '   set the multiple-byte transaction bit
         OTHER:
             return
 
     io.Low(_CS)
-    spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg | core#R)
+    spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg_nr | core#R)
 
     repeat tmp from 0 to nr_bytes-1
         byte[buff_addr][tmp] := spi.SHIFTIN(_MISO, _SCK, core#MISO_BITORDER, 8)
     io.High(_CS)
 
-PRI writeReg(reg, nr_bytes, buff_addr) | tmp
-' Write nr_bytes to register 'reg' stored at buff_addr
+PRI writeReg(reg_nr, nr_bytes, buff_addr) | tmp
+' Write nr_bytes to register 'reg_nr' stored at buff_addr
 
-    case reg
+    case reg_nr
         $1D..$2A, $2C..$2F, $31, $38:
             io.Low(_CS)
-            spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg)
+            spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg_nr)
 
             repeat tmp from 0 to nr_bytes-1
                 spi.SHIFTOUT(_MOSI, _SCK, core#MOSI_BITORDER, 8, byte[buff_addr][tmp])
