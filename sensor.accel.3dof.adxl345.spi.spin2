@@ -288,6 +288,7 @@ PUB Calibrate() | axis, orig_state, tmp[3], samples, scale
 
 PUB CalibrateAccel()
 ' Dummy method
+    calibrate()
 
 PUB CalibrateGyro()
 ' Dummy method
