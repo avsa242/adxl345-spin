@@ -3,9 +3,9 @@
     Filename: ADXL345-Demo.spin
     Author: Jesse Burt
     Description: Demo of the ADXL345 driver
-    Copyright (c) 2020
+    Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 9, 2020
+    Updated Jan 1, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -19,7 +19,6 @@ CON
     SCL_PIN     = 15
     SDA_PIN     = 14
     SDO_PIN     = 13
-    SCL_DELAY   = 1
 
     LED         = cfg#LED1
     SER_RX      = 31
@@ -49,7 +48,7 @@ PUB Main | dispmode
     accel.AccelDataRate(100)                                ' 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5,
 '                                                               25, 50, 100, 200, 400, 800, 1600, 3200
     accel.FIFOMode(accel#BYPASS)                            ' accel#BYPASS, accel#FIFO, accel#STREAM, accel#TRIGGER
-    accel.AccelOpMode(accel#MEASURE)                        ' accel#STANDBY, accel#MEASURE
+    accel.AccelOpMode(accel#MEAS)                        ' accel#STANDBY, accel#MEAS
     accel.IntMask(%0000_0000)                               ' 0, 1 each bit
     accel.AccelSelfTest(FALSE)                              ' FALSE, TRUE
     ser.HideCursor
@@ -144,7 +143,7 @@ PUB Setup
     time.MSleep(30)
     ser.Clear
     ser.Str(string("Serial terminal started", ser#CR, ser#LF))
-    if _accel_cog := accel.Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY)
+    if _accel_cog := accel.start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN)
         ser.Str (string("ADXL345 driver started", ser#CR, ser#LF))
         accel.Defaults
     else

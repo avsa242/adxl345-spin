@@ -46,7 +46,7 @@ VAR
 
     long _ares
     long _abiasraw[3]
-    byte _CS, _MOSI, _MISO, _SCK
+    long _CS, _MOSI, _MISO, _SCK
 
 OBJ
 
@@ -56,27 +56,19 @@ OBJ
     io  : "io"
 
 PUB Null{}
-'This is not a top-level object
+' This is not a top-level object
 
-PUB Start(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN) : okay
-
-    okay := Startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN, core#CLK_DELAY)
-
-PUB Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_DELAY): okay
+PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): okay
     if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and{
 }   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
-        if SCL_DELAY => 1
-            if okay := spi.start(SCL_DELAY, core#CPOL)
-                time.msleep(1)
-                _CS := CS_PIN
-                _MOSI := SDA_PIN
-                _MISO := SDO_PIN
-                _SCK := SCL_PIN
+        if okay := spi.start(core#CLK_DELAY, core#CPOL)
+            time.msleep(1)
+            longmove(@_CS, @CS_PIN, 4)      ' copy i/o pins to hub vars
 
-                io.high(_CS)
-                io.output(_CS)
-                if deviceid{} == core#DEVID_RESP
-                    return okay
+            io.high(_CS)
+            io.output(_CS)
+            if deviceid{} == core#DEVID_RESP
+                return okay
     return FALSE                                ' something above failed
 
 PUB Stop{}
