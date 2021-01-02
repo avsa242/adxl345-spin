@@ -301,7 +301,7 @@ PUB DeviceID{}: id
     id := 0
     readreg(core#DEVID, 1, @id)
 
-PUB FIFOMode(mode) | curr_mode
+PUB FIFOMode(mode): curr_mode
 ' Set FIFO operation mode
 '   Valid values:
 '      *BYPASS (%00): Don't use the FIFO functionality
