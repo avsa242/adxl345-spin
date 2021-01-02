@@ -85,26 +85,24 @@ PUB Defaults{}
     intmask(%00000000)
     accelopmode(STANDBY)
 
-PUB AccelADCRes(bits) | tmp
+PUB AccelADCRes(bits): curr_res
 ' Set accelerometer ADC resolution, in bits
 '   Valid values:
 '       10: 10bit ADC resolution (AccelScale determines maximum g range and scale factor)
 '       FULL: Output resolution increases with the g range, maintaining a 4mg/LSB scale factor
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#DATA_FORMAT, 1, @tmp)
+    curr_res := 0
+    readreg(core#DATA_FORMAT, 1, @curr_res)
     case bits
         10:
             bits := 0
         FULL:
             bits <<= core#FULL_RES
         other:
-            tmp >>= core#FULL_RES
-            return (tmp & 1)
+            return ((curr_res >> core#FULL_RES) & 1)
 
-    tmp &= core#FULL_RES_MASK
-    tmp := (tmp | bits) & core#DATA_FORMAT_MASK
-    writereg(core#DATA_FORMAT, 1, @tmp)
+    bits := ((curr_res & core#FULL_RES_MASK) | bits) & core#DATA_FORMAT_MASK
+    writereg(core#DATA_FORMAT, 1, @bits)
 
 PUB AccelAxisEnabled(xyz_mask)
 ' Dummy method
@@ -157,39 +155,40 @@ PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
     long[ptr_y] := ~~tmp.word[Y_AXIS]
     long[ptr_z] := ~~tmp.word[Z_AXIS]
 
-PUB AccelDataOverrun{}
-' Indicates previously acquired data has been overwritten
+PUB AccelDataOverrun{}: flag
+' Flag indicating previously acquired data has been overwritten
 '   Returns: TRUE (-1) if data has overflowed/been overwritten, FALSE otherwise
-    result := 0
-    readreg(core#INT_SOURCE, 1, @result)
-    result := ((result & 1) == 1)
+    flag := 0
+    readreg(core#INT_SOURCE, 1, @flag)
+    return ((flag & 1) == 1)
 
-PUB AccelDataRate(Hz) | tmp
+PUB AccelDataRate(rate): curr_rate
 ' Set accelerometer output data rate, in Hz
 '   Valid values: See case table below
 '   Any other value polls the chip and returns the current setting
 '   NOTE: Values containing an underscore represent fractional settings.
-'       Examples: 0_10 == 0.1Hz, 12_5 == 12.5Hz
-    tmp := 0
-    readreg(core#BW_RATE, 1, @tmp)
-    case Hz
-        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200:
-            Hz := lookdownz(Hz: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+'       Examples: 0_10 == 0.1rate, 12_5 == 12.5rate
+    curr_rate := 0
+    readreg(core#BW_RATE, 1, @curr_rate)
+    case rate
+        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400,{
+}       800, 1600, 3200:
+            rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25,{
+}           12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
         other:
-            tmp &= core#RATE_BITS
-            result := lookupz(tmp: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
-            return
+            curr_rate &= core#RATE_BITS
+            return lookupz(curr_rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13,{
+}           6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
 
-    tmp &= core#RATE_MASK
-    tmp := (tmp | Hz) & core#BW_RATE_MASK
-    writereg(core#BW_RATE, 1, @tmp)
+    rate := ((curr_rate & core#RATE_MASK) | rate) & core#BW_RATE_MASK
+    writereg(core#BW_RATE, 1, @rate)
 
-PUB AccelDataReady{}
-' Indicates data is ready
+PUB AccelDataReady{}: flag
+' Flag indicating accelerometer data is ready
 '   Returns: TRUE (-1) if data ready, FALSE otherwise
-    result := 0
-    readreg(core#INT_SOURCE, 1, @result)
-    result := (((result >> core#DATA_RDY) & 1) == 1)
+    flag := 0
+    readreg(core#INT_SOURCE, 1, @flag)
+    return (((flag >> core#DATA_RDY) & 1) == 1)
 
 PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpx, tmpy, tmpz
 ' Reads the Accelerometer output registers and scales the outputs to micro-g's (1_000_000 = 1.000000 g = 9.8 m/s/s)
@@ -198,66 +197,60 @@ PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpx, tmpy, tmpz
     long[ptr_y] := tmpy * _ares
     long[ptr_z] := tmpz * _ares
 
-PUB AccelOpMode(mode) | tmp
+PUB AccelOpMode(mode): curr_mode
 ' Set operating mode
 '   Valid values:
 '       STANDBY (0): Standby
 '       MEAS (1): Measurement mode
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#PWR_CTL, 1, @tmp)
+    curr_mode := 0
+    readreg(core#PWR_CTL, 1, @curr_mode)
     case mode
         STANDBY, MEAS:
             mode <<= core#MEAS
         other:
-            result := ((tmp >> core#MEAS) & 1)
-            return
+            return ((curr_mode >> core#MEAS) & 1)
 
-    tmp &= core#MEAS_MASK
-    tmp := (tmp | mode) & core#PWR_CTL_MASK
-    writereg(core#PWR_CTL, 1, @tmp)
+    mode := ((curr_mode & core#MEAS_MASK) | mode) & core#PWR_CTL_MASK
+    writereg(core#PWR_CTL, 1, @mode)
 
-PUB AccelScale(g) | tmp
+PUB AccelScale(scale): curr_scl
 ' Set measurement range of the accelerometer, in g's
 '   Valid values: 2, 4, 8, 16
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#DATA_FORMAT, 1, @tmp)
-    case g
+    curr_scl := 0
+    readreg(core#DATA_FORMAT, 1, @curr_scl)
+    case scale
         2, 4, 8, 16:
-            g := lookdownz(g: 2, 4, 8, 16)
-            if acceladcres(-2) == FULL                              ' If ADC is set to full-resolution,
-                _ares := 4_300                                      '   scale factor is always 4.3mg/LSB
-            else                                                    ' else if set to 10-bits,
-                _ares := lookupz(g: 4_300, 8_700, 17_500, 34_500)   '   it depends on the range
-            g <<= core#RANGE
+            scale := lookdownz(scale: 2, 4, 8, 16)
+            if acceladcres(-2) == FULL          ' ADC full-res scale factor
+                _ares := 4_300                  '   is always 4.3mg/LSB
+            else                                ' 10-bit res is scale-dependent
+                _ares := lookupz(scale: 4_300, 8_700, 17_500, 34_500)
+            scale <<= core#RANGE
         other:
-            tmp &= core#RANGE_BITS
-            result := lookupz(tmp: 2, 4, 8, 16)
-            return
+            curr_scl &= core#RANGE_BITS
+            return lookupz(curr_scl: 2, 4, 8, 16)
 
-    tmp &= core#RANGE_MASK
-    tmp := (tmp | g)
-    writereg(core#DATA_FORMAT, 1, @tmp)
+    scale := ((curr_scl & core#RANGE_MASK) | scale)
+    writereg(core#DATA_FORMAT, 1, @scale)
 
-PUB AccelSelfTest(enabled) | tmp
+PUB AccelSelfTest(state): curr_state
 ' Enable self-test mode
 '   Valid values: TRUE (-1 or 1), FALSE (0)
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#DATA_FORMAT, 1, @tmp)
-    case ||(enabled)
+    curr_state := 0
+    readreg(core#DATA_FORMAT, 1, @curr_state)
+    case ||(state)
         0, 1:
-            enabled := ||(enabled) << core#SELF_TEST
+            state := ||(state) << core#SELF_TEST
         other:
-            tmp >>= core#SELF_TEST
-            return (tmp & %1) == 1
+            return (((curr_state >> core#SELF_TEST) & %1) == 1)
 
-    tmp &= core#SELF_TEST_MASK
-    tmp := (tmp | enabled) & core#DATA_FORMAT_MASK
-    writereg(core#DATA_FORMAT, 1, @tmp)
+    state := ((curr_state & core#SELF_TEST_MASK) | state) & core#DATA_FORMAT_MASK
+    writereg(core#DATA_FORMAT, 1, @state)
 
-PUB Calibrate | axis, orig_state, tmp[3], samples, scale
+PUB Calibrate{} | axis, orig_state, tmp[3], samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
     longfill(@axis, 0, 7)                       ' initialize vars to 0
@@ -293,16 +286,17 @@ PUB Calibrate | axis, orig_state, tmp[3], samples, scale
 PUB CalibrateMag(samples)
 ' Dummy method
 
-PUB CalibrateXLG
+PUB CalibrateXLG{}
+' Calibrate accelerometer and gyroscope
+'   (compatibility method)
+    calibrate{}
 
-    Calibrate
-
-PUB DeviceID{}
+PUB DeviceID{}: id
 ' Read device identification
-    result := 0
-    readreg(core#DEVID, 1, @result)
+    id := 0
+    readreg(core#DEVID, 1, @id)
 
-PUB FIFOMode(mode) | tmp
+PUB FIFOMode(mode) | curr_mode
 ' Set FIFO operation mode
 '   Valid values:
 '      *BYPASS (%00): Don't use the FIFO functionality
@@ -311,19 +305,16 @@ PUB FIFOMode(mode) | tmp
 '       TRIGGER (%11): FIFO enabled (holds latest 32 samples. When trigger event occurs, the last n samples,
 '           set by FIFOSamples(), are kept. The FIFO then collects samples as long as it isn't full.
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#FIFO_CTL, 1, @tmp)
+    curr_mode := 0
+    readreg(core#FIFO_CTL, 1, @curr_mode)
     case mode
         BYPASS, FIFO, STREAM, TRIGGER:
             mode <<= core#FIFO_MODE
         other:
-            result := tmp >> core#FIFO_MODE
-            result &= core#FIFO_MODE_BITS
-            return
+            return (curr_mode >> core#FIFO_MODE) & core#FIFO_MODE_BITS
 
-    tmp &= core#FIFO_MODE_MASK
-    tmp := (tmp | mode) & core#FIFO_CTL_MASK
-    writereg(core#FIFO_CTL, 1, @tmp)
+    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode) & core#FIFO_CTL_MASK
+    writereg(core#FIFO_CTL, 1, @mode)
 
 PUB GyroAxisEnabled(xyzmask)
 ' Dummy method
@@ -334,7 +325,7 @@ PUB GyroBias(x, y, z, rw)
 PUB GyroData(x, y, z)
 ' Dummy method
 
-PUB GyroDataReady
+PUB GyroDataReady{}
 ' Dummy method
 
 PUB GyroDPS(x, y, z)
@@ -343,10 +334,10 @@ PUB GyroDPS(x, y, z)
 PUB GyroScale(scale)
 ' Dummy method
 
-PUB Interrupt
+PUB Interrupt{}
 ' Dummy method
 
-PUB IntMask(mask) | tmp
+PUB IntMask(mask): curr_mask
 ' Set interrupt mask
 '   Bits:   76543210
 '       7: Data Ready (Always enabled, regardless of setting)
@@ -359,14 +350,13 @@ PUB IntMask(mask) | tmp
 '       0: Overrun (Always enabled, regardless of setting)
 '   Valid values: %00000000..%11111111
 '   Any other value polls the chip and returns the current setting
-    tmp := 0
-    readreg(core#INT_ENABLE, 1, @tmp)
     case mask
         %0000_0000..%1111_1111:
+            writereg(core#INT_ENABLE, 1, @mask)
         other:
-            return tmp
-
-    writereg(core#INT_ENABLE, 1, @mask)
+            curr_mask := 0
+            readreg(core#INT_ENABLE, 1, @curr_mask)
+            return curr_mask
 
 PUB MagBias(x, y, z, rw)
 ' Dummy method
@@ -377,7 +367,7 @@ PUB MagData(x, y, z)
 PUB MagDataRate(hz)
 ' Dummy method
 
-PUB MagDataReady
+PUB MagDataReady{}
 ' Dummy method
 
 PUB MagGauss(x, y, z)
