@@ -46,13 +46,13 @@ VAR
 
     long _ares
     long _abiasraw[3]
-    long _CS, _MOSI, _MISO, _SCK
+    long _CS, _SCK, _MOSI, _MISO
 
 OBJ
 
-    spi : "com.spi.4w"                                          'PASM SPI Driver
+    spi : "com.spi.4w"
     core: "core.con.adxl345"
-    time: "time"                                                'Basic timing functions
+    time: "time"
     io  : "io"
 
 PUB Null{}
@@ -63,7 +63,7 @@ PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): okay
 }   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
         if okay := spi.start(core#CLK_DELAY, core#CPOL)
             time.msleep(1)
-            longmove(@_CS, @CS_PIN, 4)      ' copy i/o pins to hub vars
+            longmove(@_CS, @CS_PIN, 4)          ' copy i/o pins to hub vars
 
             io.high(_CS)
             io.output(_CS)
@@ -76,7 +76,7 @@ PUB Stop{}
     spi.stop{}
 
 PUB Defaults{}
-' Factory defaults
+' Factory default settings
     acceladcres(10)
     acceldatarate(100)
     accelscale(2)
@@ -84,6 +84,11 @@ PUB Defaults{}
     fifomode(BYPASS)
     intmask(%00000000)
     accelopmode(STANDBY)
+
+PUB Preset_Active{}
+' Like Defaults(), but sensor measurement active
+    defaults{}
+    accelopmode(MEAS)
 
 PUB AccelADCRes(bits): curr_res
 ' Set accelerometer ADC resolution, in bits
