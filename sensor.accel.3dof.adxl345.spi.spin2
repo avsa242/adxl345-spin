@@ -53,8 +53,6 @@ OBJ
 
     spi : "com.spi.bitbang-fast"
     core: "core.con.adxl345"
-    time: "time"
-    io  : "io"
 
 PUB Null()
 ' This is not a top-level object
@@ -69,7 +67,6 @@ PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCK_FREQ=5_000_000): okay
             longmove(@_CS, @CS_PIN, 4)          ' copy i/o pins to hub vars
 
             pinh(_CS)
-            io.output(_CS)
             if deviceid() == core.DEVID_RESP
                 return okay
     return FALSE                                ' something above failed
