@@ -1,6 +1,6 @@
 {
     --------------------------------------------
-    Filename: sensor.accel.3dof.adxl345.spi.spin
+    Filename: sensor.accel.3dof.adxl345.i2cspi.spin2
     Author: Jesse Burt
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
@@ -13,13 +13,11 @@
 CON
 
 ' Constants used for I2C mode only
-    SLAVE_WR        = core#SLAVE_ADDR
-    SLAVE_RD        = core#SLAVE_ADDR|1
+    SLAVE_WR            = core.SLAVE_ADDR
+    SLAVE_RD            = core.SLAVE_ADDR|1
 
-    DEF_SCL         = 28
-    DEF_SDA         = 29
-    DEF_HZ          = 100_000
-    I2C_MAX_FREQ    = core#I2C_MAX_FREQ
+    DEF_HZ              = 100_000
+    I2C_MAX_FREQ        = core.I2C_MAX_FREQ
 
 ' Indicate to user apps how many Degrees of Freedom each sub-sensor has
 '   (also imply whether or not it has a particular sensor)
@@ -59,44 +57,46 @@ VAR
 OBJ
 
 #ifdef ADXL345_I2C
-    i2c : "com.i2c"                             ' PASM I2C engine (~800kHz)
+    i2c : "com.i2c"                             ' bitbanged I2C engine (1MHz)
 #elseifdef ADXL345_SPI
-    spi : "com.spi.4w"                          ' PASM SPI engine (~1MHz)
+    spi : "com.spi.bitbang"                     ' bitbanged SPI engine (10MHz+)
 #else
 #error "One of ADXL345_I2C or ADXL345_SPI must be defined"
 #endif
     core: "core.con.adxl345"                    ' HW-specific constants
-    time: "time"                                ' timekeeping methods
-    io  : "io"                                  ' I/O pin abstraction methods
 
-PUB Null{}
+PUB Null()
 ' This is not a top-level object
 
 #ifdef ADXL345_I2C
 PUB Start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O pin settings (I2C)
-    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and{
-}   I2C_HZ =< core#I2C_MAX_FREQ
+    if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and{
+}   I2C_HZ <= core.I2C_MAX_FREQ
         if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
-            time.msleep(1)
-            if deviceid{} == core#DEVID_RESP
+            waitus(core.TPOR)
+            i2c.reset()
+            repeat 2
+                i2c.stop()
+            if deviceid() == core.DEVID_RESP
                 return status
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
     ' Lastly - make sure you have at least one free core/cog
     return FALSE
 #elseifdef ADXL345_SPI
-PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
-' Start using custom I/O pin settings (SPI)
-    if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and{
-}   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
-        if (status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core#SPI_MODE))
-            time.msleep(1)
+PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_FREQ=1_000_000): status
+' Start using custom I/O pin settings (SPI, default 1MHz)
+    if lookdown(CS_PIN: 0..63) and lookdown(SCL_PIN: 0..63) and{
+}   lookdown(SDA_PIN: 0..63) and lookdown(SDO_PIN: 0..63) and{
+}   SCL_FREQ <= core.SPI_MAX_FREQ
+        if (status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core.SPI_MODE, {
+}       SCL_FREQ))
+            waitus(core.TP
             _CS := CS_PIN
 
-            io.high(_CS)                        ' ensure CS starts high
-            io.output(_CS)
-            if deviceid{} == core#DEVID_RESP
+            pinh(_CS)                        ' ensure CS starts high
+            if deviceid() == core.DEVID_RESP
                 return status
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
@@ -104,15 +104,15 @@ PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
     return FALSE
 #endif
 
-PUB Stop{}
+PUB Stop()
 
 #ifdef ADXL345_I2C
-    i2c.deinit{}
+    i2c.deinit()
 #elseifdef ADXL345_SPI
-    spi.deinit{}
+    spi.deinit()
 #endif
 
-PUB Defaults{}
+PUB Defaults()
 ' Factory default settings
     acceladcres(10)
     acceldatarate(100)
@@ -122,9 +122,9 @@ PUB Defaults{}
     intmask(%00000000)
     accelopmode(STANDBY)
 
-PUB Preset_Active{}
+PUB Preset_Active()
 ' Like Defaults(), but sensor measurement active
-    defaults{}
+    defaults()
     accelopmode(MEAS)
 
 PUB AccelADCRes(bits): curr_res
@@ -134,17 +134,17 @@ PUB AccelADCRes(bits): curr_res
 '       FULL: Output resolution increases with the g range, maintaining a 4mg/LSB scale factor
 '   Any other value polls the chip and returns the current setting
     curr_res := 0
-    readreg(core#DATA_FORMAT, 1, @curr_res)
+    readreg(core.DATA_FORMAT, 1, @curr_res)
     case bits
         10:
             bits := 0
         FULL:
-            bits <<= core#FULL_RES
+            bits <<= core.FULL_RES
         other:
-            return ((curr_res >> core#FULL_RES) & 1)
+            return ((curr_res >> core.FULL_RES) & 1)
 
-    bits := ((curr_res & core#FULL_RES_MASK) | bits) & core#DATA_FORMAT_MASK
-    writereg(core#DATA_FORMAT, 1, @bits)
+    bits := ((curr_res & core.FULL_RES_MASK) | bits) & core.DATA_FORMAT_MASK
+    writereg(core.DATA_FORMAT, 1, @bits)
 
 PUB AccelAxisEnabled(xyz_mask)
 ' Dummy method
@@ -180,28 +180,28 @@ PUB Accelbias(axbias, aybias, azbias, rw)
                 other:
 
 
-PUB AccelClearOffsets{} 'XXX axe? revisit...what was this used for and why couldn't accelbias() be used?
+PUB AccelClearOffsets() 'XXX axe? revisit...what was this used for and why couldn't accelbias() be used?
 ' Clear calibration offsets set in the accelerometer
 '   NOTE: The offsets don't survive a power-loss. This is intended for when the microcontroller is warm-booted or the driver is restarted, where no power loss to the sensor has occurred.
     result := 0
-    writereg(core#OFSX, 2, @result)
-    writereg(core#OFSY, 2, @result)
-    writereg(core#OFSZ, 2, @result)
+    writereg(core.OFSX, 2, @result)
+    writereg(core.OFSY, 2, @result)
+    writereg(core.OFSZ, 2, @result)
 
 PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
 ' Reads the Accelerometer output registers
     longfill(@tmp, 0, 2)
-    readreg(core#DATAX0, 6, @tmp)
+    readreg(core.DATAX0, 6, @tmp)
 
     long[ptr_x] := ~~tmp.word[X_AXIS]
     long[ptr_y] := ~~tmp.word[Y_AXIS]
     long[ptr_z] := ~~tmp.word[Z_AXIS]
 
-PUB AccelDataOverrun{}: flag
+PUB AccelDataOverrun(): flag
 ' Flag indicating previously acquired data has been overwritten
 '   Returns: TRUE (-1) if data has overflowed/been overwritten, FALSE otherwise
     flag := 0
-    readreg(core#INT_SOURCE, 1, @flag)
+    readreg(core.INT_SOURCE, 1, @flag)
     return ((flag & 1) == 1)
 
 PUB AccelDataRate(rate): curr_rate
@@ -211,26 +211,26 @@ PUB AccelDataRate(rate): curr_rate
 '   NOTE: Values containing an underscore represent fractional settings.
 '       Examples: 0_10 == 0.1Hz, 12_5 == 12.5Hz
     curr_rate := 0
-    readreg(core#BW_RATE, 1, @curr_rate)
+    readreg(core.BW_RATE, 1, @curr_rate)
     case rate
         0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400,{
 }       800, 1600, 3200:
             rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25,{
 }           12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
         other:
-            curr_rate &= core#RATE_BITS
+            curr_rate &= core.RATE_BITS
             return lookupz(curr_rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13,{
 }           6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
 
-    rate := ((curr_rate & core#RATE_MASK) | rate) & core#BW_RATE_MASK
-    writereg(core#BW_RATE, 1, @rate)
+    rate := ((curr_rate & core.RATE_MASK) | rate) & core.BW_RATE_MASK
+    writereg(core.BW_RATE, 1, @rate)
 
-PUB AccelDataReady{}: flag
+PUB AccelDataReady(): flag
 ' Flag indicating accelerometer data is ready
 '   Returns: TRUE (-1) if data ready, FALSE otherwise
     flag := 0
-    readreg(core#INT_SOURCE, 1, @flag)
-    return (((flag >> core#DATA_RDY) & 1) == 1)
+    readreg(core.INT_SOURCE, 1, @flag)
+    return (((flag >> core.DATA_RDY) & 1) == 1)
 
 PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpx, tmpy, tmpz
 ' Reads the Accelerometer output registers and scales the outputs to micro-g's (1_000_000 = 1.000000 g = 9.8 m/s/s)
@@ -246,22 +246,22 @@ PUB AccelOpMode(mode): curr_mode
 '       MEAS (1): Measurement mode
 '   Any other value polls the chip and returns the current setting
     curr_mode := 0
-    readreg(core#PWR_CTL, 1, @curr_mode)
+    readreg(core.PWR_CTL, 1, @curr_mode)
     case mode
         STANDBY, MEAS:
-            mode <<= core#MEAS
+            mode <<= core.MEAS
         other:
-            return ((curr_mode >> core#MEAS) & 1)
+            return ((curr_mode >> core.MEAS) & 1)
 
-    mode := ((curr_mode & core#MEAS_MASK) | mode) & core#PWR_CTL_MASK
-    writereg(core#PWR_CTL, 1, @mode)
+    mode := ((curr_mode & core.MEAS_MASK) | mode) & core.PWR_CTL_MASK
+    writereg(core.PWR_CTL, 1, @mode)
 
 PUB AccelScale(scale): curr_scl
 ' Set measurement range of the accelerometer, in g's
 '   Valid values: 2, 4, 8, 16
 '   Any other value polls the chip and returns the current setting
     curr_scl := 0
-    readreg(core#DATA_FORMAT, 1, @curr_scl)
+    readreg(core.DATA_FORMAT, 1, @curr_scl)
     case scale
         2, 4, 8, 16:
             scale := lookdownz(scale: 2, 4, 8, 16)
@@ -269,30 +269,30 @@ PUB AccelScale(scale): curr_scl
                 _ares := 4_300                  '   is always 4.3mg/LSB
             else                                ' 10-bit res is scale-dependent
                 _ares := lookupz(scale: 4_300, 8_700, 17_500, 34_500)
-            scale <<= core#RANGE
+            scale <<= core.RANGE
         other:
-            curr_scl &= core#RANGE_BITS
+            curr_scl &= core.RANGE_BITS
             return lookupz(curr_scl: 2, 4, 8, 16)
 
-    scale := ((curr_scl & core#RANGE_MASK) | scale)
-    writereg(core#DATA_FORMAT, 1, @scale)
+    scale := ((curr_scl & core.RANGE_MASK) | scale)
+    writereg(core.DATA_FORMAT, 1, @scale)
 
 PUB AccelSelfTest(state): curr_state
 ' Enable self-test mode
 '   Valid values: TRUE (-1 or 1), FALSE (0)
 '   Any other value polls the chip and returns the current setting
     curr_state := 0
-    readreg(core#DATA_FORMAT, 1, @curr_state)
-    case ||(state)
+    readreg(core.DATA_FORMAT, 1, @curr_state)
+    case abs(state)
         0, 1:
-            state := ||(state) << core#SELF_TEST
+            state := abs(state) << core.SELF_TEST
         other:
-            return (((curr_state >> core#SELF_TEST) & %1) == 1)
+            return (((curr_state >> core.SELF_TEST) & %1) == 1)
 
-    state := ((curr_state & core#SELF_TEST_MASK) | state) & core#DATA_FORMAT_MASK
-    writereg(core#DATA_FORMAT, 1, @state)
+    state := ((curr_state & core.SELF_TEST_MASK) | state) & core.DATA_FORMAT_MASK
+    writereg(core.DATA_FORMAT, 1, @state)
 
-PUB Calibrate{} | axis, orig_state, tmp[3], samples, scale
+PUB Calibrate() | axis, orig_state, tmp[3], samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
     longfill(@axis, 0, 7)                       ' initialize vars to 0
@@ -319,7 +319,7 @@ PUB Calibrate{} | axis, orig_state, tmp[3], samples, scale
     repeat axis from X_AXIS to Z_AXIS
         _abiasraw[axis] := tmp[AXIS] / samples
         tmp[axis] := _abiasraw[axis] / scale
-        writereg(core#OFSX+axis, 2, @tmp[axis])
+        writereg(core.OFSX+axis, 2, @tmp[axis])
 
     acceladcres(orig_state.byte[0])             ' restore user's settings
     accelscale(orig_state.byte[1])
@@ -328,15 +328,15 @@ PUB Calibrate{} | axis, orig_state, tmp[3], samples, scale
 PUB CalibrateMag(samples)
 ' Dummy method
 
-PUB CalibrateXLG{}
+PUB CalibrateXLG()
 ' Calibrate accelerometer and gyroscope
 '   (compatibility method)
-    calibrate{}
+    calibrate()
 
-PUB DeviceID{}: id
+PUB DeviceID(): id
 ' Read device identification
     id := 0
-    readreg(core#DEVID, 1, @id)
+    readreg(core.DEVID, 1, @id)
 
 PUB FIFOMode(mode): curr_mode
 ' Set FIFO operation mode
@@ -348,15 +348,15 @@ PUB FIFOMode(mode): curr_mode
 '           set by FIFOSamples(), are kept. The FIFO then collects samples as long as it isn't full.
 '   Any other value polls the chip and returns the current setting
     curr_mode := 0
-    readreg(core#FIFO_CTL, 1, @curr_mode)
+    readreg(core.FIFO_CTL, 1, @curr_mode)
     case mode
         BYPASS, FIFO, STREAM, TRIGGER:
-            mode <<= core#FIFO_MODE
+            mode <<= core.FIFO_MODE
         other:
-            return (curr_mode >> core#FIFO_MODE) & core#FIFO_MODE_BITS
+            return (curr_mode >> core.FIFO_MODE) & core.FIFO_MODE_BITS
 
-    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode) & core#FIFO_CTL_MASK
-    writereg(core#FIFO_CTL, 1, @mode)
+    mode := ((curr_mode & core.FIFO_MODE_MASK) | mode) & core.FIFO_CTL_MASK
+    writereg(core.FIFO_CTL, 1, @mode)
 
 PUB GyroAxisEnabled(xyzmask)
 ' Dummy method
@@ -367,7 +367,7 @@ PUB GyroBias(x, y, z, rw)
 PUB GyroData(x, y, z)
 ' Dummy method
 
-PUB GyroDataReady{}
+PUB GyroDataReady()
 ' Dummy method
 
 PUB GyroDPS(x, y, z)
@@ -376,7 +376,7 @@ PUB GyroDPS(x, y, z)
 PUB GyroScale(scale)
 ' Dummy method
 
-PUB Interrupt{}
+PUB Interrupt()
 ' Dummy method
 
 PUB IntMask(mask): curr_mask
@@ -394,10 +394,10 @@ PUB IntMask(mask): curr_mask
 '   Any other value polls the chip and returns the current setting
     case mask
         %0000_0000..%1111_1111:
-            writereg(core#INT_ENABLE, 1, @mask)
+            writereg(core.INT_ENABLE, 1, @mask)
         other:
             curr_mask := 0
-            readreg(core#INT_ENABLE, 1, @curr_mask)
+            readreg(core.INT_ENABLE, 1, @curr_mask)
             return curr_mask
 
 PUB MagBias(x, y, z, rw)
@@ -409,7 +409,7 @@ PUB MagData(x, y, z)
 PUB MagDataRate(hz)
 ' Dummy method
 
-PUB MagDataReady{}
+PUB MagDataReady()
 ' Dummy method
 
 PUB MagGauss(x, y, z)
@@ -423,24 +423,24 @@ PRI readReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
     case reg_nr
         $00, $1D..$31, $38, $39:
         $32..$37:                               ' accel data regs; set the
-            reg_nr |= core#MB                   '   multi-byte transaction bit
+            reg_nr |= core.MB                   '   multi-byte transaction bit
         other:
             return
 
 #ifdef ADXL345_I2C
     cmd_pkt.byte[0] := SLAVE_WR
     cmd_pkt.byte[1] := reg_nr
-    i2c.start{}
+    i2c.start()
     i2c.wrblock_lsbf(@cmd_pkt, 2)
-    i2c.start{}
+    i2c.start()
     i2c.wr_byte(SLAVE_RD)
-    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
-    i2c.stop{}
+    i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c.NAK)
+    i2c.stop()
 #elseifdef ADXL345_SPI
-    io.low(_CS)
-    spi.wr_byte(reg_nr | core#R)
+    pinl(_CS)
+    spi.wr_byte(reg_nr | core.R)
     spi.rdblock_lsbf(ptr_buff, nr_bytes)
-    io.high(_CS)
+    pinh(_CS)
 #endif
 
 PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
@@ -450,17 +450,17 @@ PRI writeReg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 #ifdef ADXL345_I2C
             cmd_pkt.byte[0] := SLAVE_WR
             cmd_pkt.byte[1] := reg_nr
-            i2c.start{}
+            i2c.start()
             i2c.wrblock_lsbf(@cmd_pkt, 2)
-            i2c.start{}
+            i2c.start()
             i2c.wr_byte(SLAVE_RD)
             i2c.wrblock_lsbf(ptr_buff, nr_bytes)
-            i2c.stop{}
+            i2c.stop()
 #elseifdef ADXL345_SPI
-            io.low(_CS)
+            pinl(_CS)
             spi.wr_byte(reg_nr)
             spi.wrblock_lsbf(ptr_buff, nr_bytes)
-            io.high(_CS)
+            pinh(_CS)
 #endif
         other:
             return
