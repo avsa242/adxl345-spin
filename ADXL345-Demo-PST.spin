@@ -32,7 +32,7 @@ CON
 OBJ
 
     cfg     : "core.con.boardcfg.flip"
-    ser     : "com.serial.terminal.ansi"
+    ser     : "com.serial.terminal"
     time    : "time"
     int     : "string.integer"
     accel   : "sensor.accel.3dof.adxl345.spi"
@@ -42,7 +42,6 @@ PUB Main{}
     setup{}
     accel.preset_active{}
     calibrate{}
-    ser.hidecursor{}
 
     repeat
         ser.position(0, 3)
@@ -51,7 +50,6 @@ PUB Main{}
             calibrate{}
     until ser.rxcheck{} == "q"
 
-    ser.showcursor{}
     repeat
 
 PUB AccelCalc{} | ax, ay, az

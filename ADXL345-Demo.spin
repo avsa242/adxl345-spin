@@ -5,10 +5,12 @@
     Description: Demo of the ADXL345 driver
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Jan 1, 2021
+    Updated Mar 21, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
+#define ADXL345_I2C
+'#define ADXL345_SPI
 
 CON
 
@@ -19,10 +21,17 @@ CON
     LED         = cfg#LED1
     SER_BAUD    = 115_200
 
-    CS_PIN      = 0
-    SCL_PIN     = 1
-    SDA_PIN     = 2
-    SDO_PIN     = 3
+#ifdef ADXL345_I2C
+    SCL_PIN     = 17
+    SDA_PIN     = 18
+    I2C_HZ      = 400_000
+    ADDR_BITS   = 0
+#elseifdef ADXL345_SPI
+    CS_PIN      = 16
+    SCL_PIN     = 17
+    SDA_PIN     = 18
+    SDO_PIN     = 19
+#endif
 ' --
 
     DAT_X_COL   = 20
@@ -32,16 +41,17 @@ CON
 OBJ
 
     cfg     : "core.con.boardcfg.flip"
-    ser     : "com.serial.terminal"
+    ser     : "com.serial.terminal.ansi"
     time    : "time"
     int     : "string.integer"
-    accel   : "sensor.accel.3dof.adxl345.spi"
+    accel   : "sensor.accel.3dof.adxl345.i2cspi"
 
 PUB Main{}
 
     setup{}
     accel.preset_active{}
     calibrate{}
+    ser.hidecursor{}
 
     repeat
         ser.position(0, 3)
@@ -50,6 +60,7 @@ PUB Main{}
             calibrate{}
     until ser.rxcheck{} == "q"
 
+    ser.showcursor{}
     repeat
 
 PUB AccelCalc{} | ax, ay, az
@@ -105,8 +116,14 @@ PUB Setup{}
     time.msleep(30)
     ser.clear{}
     ser.strln(string("Serial terminal started"))
+
+#ifdef ADXL345_I2C
+    if accel.start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS)
+        ser.strln(string("ADXL345 driver started (I2C)"))
+#elseifdef ADXL345_SPI
     if accel.start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN)
-        ser.strln(string("ADXL345 driver started"))
+        ser.strln(string("ADXL345 driver started (SPI)"))
+#endif
     else
         ser.str(string("ADXL345 driver failed to start - halting"))
         accel.stop{}
