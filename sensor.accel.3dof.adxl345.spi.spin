@@ -3,9 +3,9 @@
     Filename: sensor.accel.3dof.adxl345.spi.spin
     Author: Jesse Burt
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
-    Copyright (c) 2020
+    Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Jul 19, 2020
+    Updated Mar 21, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -45,35 +45,39 @@ CON
 VAR
 
     long _ares
-    long _abiasraw[3]
-    long _CS, _SCK, _MOSI, _MISO
+    long _abiasraw[ACCEL_DOF]
+    long _CS
 
 OBJ
 
-    spi : "com.spi.4w"
-    core: "core.con.adxl345"
-    time: "time"
-    io  : "io"
+    spi : "com.spi.4w"                          ' PASM SPI engine (~1MHz)
+    core: "core.con.adxl345"                    ' HW-specific constants
+    time: "time"                                ' timekeeping methods
+    io  : "io"                                  ' I/O pin abstraction methods
 
 PUB Null{}
 ' This is not a top-level object
 
-PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): okay
+PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
+' Start using custom I/O pin settings
     if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and{
 }   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
-        if okay := spi.start(core#CLK_DELAY, core#CPOL)
+        if (status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core#SPI_MODE))
             time.msleep(1)
-            longmove(@_CS, @CS_PIN, 4)          ' copy i/o pins to hub vars
+            _CS := CS_PIN
 
-            io.high(_CS)
+            io.high(_CS)                        ' ensure CS starts high
             io.output(_CS)
             if deviceid{} == core#DEVID_RESP
-                return okay
-    return FALSE                                ' something above failed
+                return status
+    ' if this point is reached, something above failed
+    ' Double check I/O pin assignments, connections, power
+    ' Lastly - make sure you have at least one free core/cog
+    return FALSE
 
 PUB Stop{}
 
-    spi.stop{}
+    spi.deinit{}
 
 PUB Defaults{}
 ' Factory default settings
@@ -391,10 +395,8 @@ PRI readReg(reg_nr, nr_bytes, ptr_buff) | tmp
             return
 
     io.low(_CS)
-    spi.shiftout(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg_nr | core#R)
-
-    repeat tmp from 0 to nr_bytes-1
-        byte[ptr_buff][tmp] := spi.shiftin(_MISO, _SCK, core#MISO_BITORDER, 8)
+    spi.wr_byte(reg_nr | core#R)
+    spi.rdblock_lsbf(ptr_buff, nr_bytes)
     io.high(_CS)
 
 PRI writeReg(reg_nr, nr_bytes, ptr_buff) | tmp
@@ -402,10 +404,8 @@ PRI writeReg(reg_nr, nr_bytes, ptr_buff) | tmp
     case reg_nr
         $1D..$2A, $2C..$2F, $31, $38:
             io.low(_CS)
-            spi.shiftout(_MOSI, _SCK, core#MOSI_BITORDER, 8, reg_nr)
-
-            repeat tmp from 0 to nr_bytes-1
-                spi.shiftout(_MOSI, _SCK, core#MOSI_BITORDER, 8, byte[ptr_buff][tmp])
+            spi.wr_byte(reg_nr)
+            spi.wrblock_lsbf(ptr_buff, nr_bytes)
             io.high(_CS)
         other:
             return

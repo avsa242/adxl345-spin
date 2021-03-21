@@ -17,10 +17,11 @@ CON
     CLK_DELAY                   = 1             ' P1 SPI engine
     MOSI_BITORDER               = 5             ' MSBFIRST
     MISO_BITORDER               = 2             ' MSBPOST
+    SPI_MODE                    = 3
     SCL_MAX_FREQ                = 5_000_000     ' P2 SPI engine
 
 ' I2C Configuration
-    SLAVE_ADDR                  = $1D << 7
+    SLAVE_ADDR                  = $53 << 1
     I2C_MAX_FREQ                = 400_000
 
     W                           = 0
