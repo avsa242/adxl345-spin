@@ -5,7 +5,7 @@
     Description: Low-level constants
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Mar 21, 2021
+    Updated May 28, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -20,7 +20,7 @@ CON
     SLAVE_ADDR                  = $53 << 1
     I2C_MAX_FREQ                = 400_000
 
-    TPOR                        = 1_400         ' uSec
+    T_POR                       = 1_400         ' usec
     W                           = 0
     R                           = 1 << 7        ' read
     MB                          = 1 << 6        ' multiple-byte transcation
@@ -129,10 +129,8 @@ CON
         ENTRIES                 = 0
         ENTRIES_BITS            = %111111
 
-#ifndef __propeller2__
 PUB Null
 ' This is not a top-level object
-#endif
 
 {
     --------------------------------------------------------------------------------------------------------

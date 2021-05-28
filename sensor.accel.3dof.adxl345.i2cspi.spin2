@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated May 27, 2021
+    Updated May 28, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -13,45 +13,52 @@
 CON
 
 ' Constants used for I2C mode only
-    SLAVE_WR            = core.SLAVE_ADDR
-    SLAVE_RD            = core.SLAVE_ADDR|1
+    SLAVE_WR        = core.SLAVE_ADDR
+    SLAVE_RD        = core.SLAVE_ADDR|1
 
-    DEF_HZ              = 100_000
-    I2C_MAX_FREQ        = core.I2C_MAX_FREQ
+    DEF_HZ          = 100_000
+    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
 
 ' Indicate to user apps how many Degrees of Freedom each sub-sensor has
 '   (also imply whether or not it has a particular sensor)
-    ACCEL_DOF           = 3
-    GYRO_DOF            = 0
-    MAG_DOF             = 0
-    BARO_DOF            = 0
-    DOF                 = ACCEL_DOF + GYRO_DOF + MAG_DOF + BARO_DOF
+    ACCEL_DOF       = 3
+    GYRO_DOF        = 0
+    MAG_DOF         = 0
+    BARO_DOF        = 0
+    DOF             = ACCEL_DOF + GYRO_DOF + MAG_DOF + BARO_DOF
 
-    R                   = 0
-    W                   = 1
+    R               = 0
+    W               = 1
+
+' Scales and data rates used during calibration/bias/offset process
+    CAL_XL_SCL      = 2
+    CAL_G_SCL       = 0
+    CAL_M_SCL       = 0
+    CAL_XL_DR       = 100
+    CAL_G_DR        = 0
+    CAL_M_DR        = 0
 
 ' Operating modes
-    STANDBY             = 0
-    MEAS                = 1
+    STANDBY         = 0
+    MEAS            = 1
 
 ' FIFO modes
-    BYPASS              = %00
-    FIFO                = %01
-    STREAM              = %10
-    TRIGGER             = %11
+    BYPASS          = %00
+    FIFO            = %01
+    STREAM          = %10
+    TRIGGER         = %11
 
 ' ADC resolution
-    FULL                = 1
+    FULL            = 1
 
 ' Axis symbols for use throughout the driver
-    X_AXIS              = 0
-    Y_AXIS              = 1
-    Z_AXIS              = 2
+    X_AXIS          = 0
+    Y_AXIS          = 1
+    Z_AXIS          = 2
 
 VAR
 
     long _ares
-    long _abiasraw[ACCEL_DOF]
     long _CS
 
 OBJ
@@ -71,10 +78,10 @@ PUB Null()
 #ifdef ADXL345_I2C
 PUB Start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O pin settings (I2C)
-    if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and{
+    if lookdown(SCL_PIN: 0..63) and lookdown(SDA_PIN: 0..63) and {
 }   I2C_HZ <= core.I2C_MAX_FREQ
         if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
-            waitus(core.TPOR)
+            waitus(core.T_POR)
             i2c.reset()
             repeat 2
                 i2c.stop()
@@ -87,15 +94,15 @@ PUB Start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 #elseifdef ADXL345_SPI
 PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN, SCL_FREQ=1_000_000): status
 ' Start using custom I/O pin settings (SPI, default 1MHz)
-    if lookdown(CS_PIN: 0..63) and lookdown(SCL_PIN: 0..63) and{
-}   lookdown(SDA_PIN: 0..63) and lookdown(SDO_PIN: 0..63) and{
+    if lookdown(CS_PIN: 0..63) and lookdown(SCL_PIN: 0..63) and {
+}   lookdown(SDA_PIN: 0..63) and lookdown(SDO_PIN: 0..63) and {
 }   SCL_FREQ <= core.SPI_MAX_FREQ
         if (status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core.SPI_MODE, {
 }       SCL_FREQ))
-            waitus(core.TP
+            waitus(core.T_POR)
             _CS := CS_PIN
 
-            pinh(_CS)                        ' ensure CS starts high
+            pinh(_CS)                           ' ensure CS starts high
             if deviceid() == core.DEVID_RESP
                 return status
     ' if this point is reached, something above failed
@@ -149,36 +156,35 @@ PUB AccelADCRes(bits): curr_res
 PUB AccelAxisEnabled(xyz_mask)
 ' Dummy method
 
-PUB Accelbias(axbias, aybias, azbias, rw)
+PUB AccelBias(bias_x, bias_y, bias_z, rw=R) | tmp
 ' Read or write/manually set accelerometer calibration offset values
 '   Valid values:
 '       rw:
 '           R (0), W (1)
-'       axbias, aybias, azbias:
+'       bias_x, bias_y, bias_z:
 '           -128..127
-'   NOTE: When rw is set to READ, axbias, aybias and azbias must be addresses of respective variables to hold the returned calibration offset values.
+'   NOTE: When rw is set to READ, bias_x, bias_y and bias_z must be addresses
+'       of respective variables to hold the returned calibration offset values.
     case rw
         R:
-            long[axbias] := _abiasraw[X_AXIS]
-            long[aybias] := _abiasraw[Y_AXIS]
-            long[azbias] := _abiasraw[Z_AXIS]
-
+            readreg(core.OFSX, 3, @tmp)
+            long[bias_x] := tmp.byte[X_AXIS] signx 7
+            long[bias_y] := tmp.byte[Y_AXIS] signx 7
+            long[bias_z] := tmp.byte[Z_AXIS] signx 7
+            return
         W:
-            case axbias
+            case bias_x
                 -128..127:
-                    _abiasraw[X_AXIS] := axbias
                 other:
-
-            case aybias
+            case bias_y
                 -128..127:
-                    _abiasraw[Y_AXIS] := aybias
                 other:
-
-            case azbias
+            case bias_z
                 -128..127:
-                    _abiasraw[Z_AXIS] := azbias
                 other:
-
+            writereg(core.OFSX, 1, @bias_x)
+            writereg(core.OFSY, 1, @bias_y)
+            writereg(core.OFSZ, 1, @bias_z)
 
 PUB AccelClearOffsets() 'XXX axe? revisit...what was this used for and why couldn't accelbias() be used?
 ' Clear calibration offsets set in the accelerometer
@@ -292,38 +298,40 @@ PUB AccelSelfTest(state): curr_state
     state := ((curr_state & core.SELF_TEST_MASK) | state) & core.DATA_FORMAT_MASK
     writereg(core.DATA_FORMAT, 1, @state)
 
-PUB Calibrate() | axis, orig_state, tmp[3], samples, scale
+PUB Calibrate() | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
     longfill(@axis, 0, 7)                       ' initialize vars to 0
-    samples := 10
-    orig_state.byte[0] := acceladcres(-2)       ' save user's current settings
-    orig_state.byte[1] := accelscale(-2)
-    orig_state.word[1] := acceldatarate(-2)
+    orig_res := acceladcres(-2)                 ' save user's current settings
+    orig_scl := accelscale(-2)
+    orig_drate := acceldatarate(-2)
+
+    accelbias(0, 0, 0, W)
 
     ' set sensor to full ADC resolution, +/-2g range, 100Hz data rate
     acceladcres(FULL)
-    accelscale(2)
-    acceldatarate(100)
-
+    accelscale(CAL_XL_SCL)
+    acceldatarate(CAL_XL_DR)
+    samples := CAL_XL_DR
     ' conversion scale for calibration offset regs (15.6mg per LSB / 4.3mg)
     scale := 15_6000 / 4_3
 
     repeat samples                              ' average 10 samples together
-        acceldata(@tmp[X_AXIS], @tmp[Y_AXIS], @tmp[Z_AXIS])
-        tmp[X_AXIS] += -(tmp[X_AXIS]*1_000)     ' scale up to preserve accuracy
-        tmp[Y_AXIS] += -(tmp[Y_AXIS]*1_000)
-        tmp[Z_AXIS] += -((tmp[Z_AXIS]*1_000)-256_000)' cancel out 1g on Z-axis
+        repeat until acceldataready{}
+        acceldata(@tmpx, @tmpy, @tmpz)
+        tmp[X_AXIS] -= (tmpx * 1_000)           ' scale up to preserve accuracy
+        tmp[Y_AXIS] -= (tmpy * 1_000)
+        tmp[Z_AXIS] += ((tmpz * 1_000)-256_000) ' cancel out 1g on Z-axis
+
+    repeat axis from X_AXIS to Z_AXIS
+        tmp[axis] /= samples
 
     ' write the offsets to the sensor (volatile memory)
-    repeat axis from X_AXIS to Z_AXIS
-        _abiasraw[axis] := tmp[AXIS] / samples
-        tmp[axis] := _abiasraw[axis] / scale
-        writereg(core.OFSX+axis, 2, @tmp[axis])
+    accelbias(tmp[X_AXIS]/scale, tmp[Y_AXIS]/scale, tmp[Z_AXIS]/scale, W)
 
-    acceladcres(orig_state.byte[0])             ' restore user's settings
-    accelscale(orig_state.byte[1])
-    acceldatarate(orig_state.word[1])
+    acceladcres(orig_res)                       ' restore user's settings
+    accelscale(orig_scl)
+    acceldatarate(orig_drate)
 
 PUB CalibrateMag(samples)
 ' Dummy method

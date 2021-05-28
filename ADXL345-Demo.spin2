@@ -25,7 +25,7 @@ CON
 #ifdef ADXL345_I2C
     SCL_PIN     = 1
     SDA_PIN     = 2
-    I2C_HZ      = 100_000
+    I2C_HZ      = 400_000
     ADDR_BITS   = 0
 #elseifdef ADXL345_SPI
     CS_PIN      = 0
