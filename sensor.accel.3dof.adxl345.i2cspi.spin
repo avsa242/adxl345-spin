@@ -189,14 +189,6 @@ PUB AccelBias(bias_x, bias_y, bias_z, rw) | tmp
             writereg(core#OFSY, 1, @bias_y)
             writereg(core#OFSZ, 1, @bias_z)
 
-PUB AccelClearOffsets{} 'XXX axe? revisit...what was this used for and why couldn't accelbias() be used?
-' Clear calibration offsets set in the accelerometer
-'   NOTE: The offsets don't survive a power-loss. This is intended for when the microcontroller is warm-booted or the driver is restarted, where no power loss to the sensor has occurred.
-    result := 0
-    writereg(core#OFSX, 2, @result)
-    writereg(core#OFSY, 2, @result)
-    writereg(core#OFSZ, 2, @result)
-
 PUB AccelData(ptr_x, ptr_y, ptr_z) | tmp[2]
 ' Reads the Accelerometer output registers
     longfill(@tmp, 0, 2)
