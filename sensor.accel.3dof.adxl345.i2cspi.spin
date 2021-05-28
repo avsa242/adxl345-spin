@@ -293,7 +293,7 @@ PUB AccelSelfTest(state): curr_state
     state := ((curr_state & core#SELF_TEST_MASK) | state) & core#DATA_FORMAT_MASK
     writereg(core#DATA_FORMAT, 1, @state)
 
-PUB Calibrate{} | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
+PUB CalibrateAccel{} | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
     longfill(@axis, 0, 7)                       ' initialize vars to 0
@@ -334,7 +334,7 @@ PUB CalibrateMag(samples)
 PUB CalibrateXLG{}
 ' Calibrate accelerometer and gyroscope
 '   (compatibility method)
-    calibrate{}
+    calibrateaccel{}
 
 PUB DeviceID{}: id
 ' Read device identification

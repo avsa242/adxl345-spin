@@ -81,7 +81,7 @@ PUB Calibrate{}
 
     ser.position(0, 3)
     ser.str(string("Calibrating..."))
-    accel.calibrate{}
+    accel.calibrateaccel{}
     ser.position(0, 3)
     ser.clearline{}
 
