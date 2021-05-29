@@ -28,7 +28,7 @@ P2/SPIN2:
 ## Compiler Compatibility
 
 * P1/SPIN1: OpenSpin (tested with 1.00.81)
-* P2/SPIN2: FlexSpin (tested with 5.3.0)
+* P2/SPIN2: FlexSpin (tested with 5.5.0)
 * ~~BST~~ (incompatible - no preprocessor)
 * ~~Propeller Tool~~ (incompatible - no preprocessor)
 * ~~PNut~~ (incompatible - no preprocessor)
@@ -46,6 +46,6 @@ P2/SPIN2:
 - [ ] Add 3-wire SPI support
 - [x] Add I2C support
 - [ ] Expand FIFO support (currently, FIFO modes can be enabled, but no specific FIFO handling exists)
-- [ ] Add support for tap and double-tap detection
+- [x] Add support for tap and double-tap detection
 - [ ] Add support for free-fall detection
 - [ ] Add support activity and inactivity detection

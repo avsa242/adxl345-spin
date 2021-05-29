@@ -1,6 +1,6 @@
 {
     --------------------------------------------
-    Filename: sensor.accel.3dof.adxl345.spi.spin
+    Filename: sensor.accel.3dof.adxl345.i2cspi.spin
     Author: Jesse Burt
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
@@ -40,6 +40,12 @@ CON
     CAL_G_DR        = 0
     CAL_M_DR        = 0
 
+' Scale factors used to calculate various register values
+    SCL_TAPTHRESH   = 0_062500  {THRESH_TAP: 0.0625 mg/LSB}
+    SCL_TAPDUR      = 625       {DUR: 625 usec/LSB}
+    SCL_TAPLAT      = 1250      {LATENT: 1250 usec/LSB}
+    SCL_DTAPWINDOW  = 1250      {WINDOW: 1250 usec/LSB}
+
 ' Operating modes
     STANDBY         = 0
     MEAS            = 1
@@ -52,6 +58,16 @@ CON
 
 ' ADC resolution
     FULL            = 1
+
+' Interrupts
+    DATA_RDY        = 1 << 7
+    SING_TAP        = 1 << 6
+    DBL_TAP         = 1 << 5
+    ACTIVITY        = 1 << 4
+    INACTIVITY      = 1 << 3
+    FREEFALL        = 1 << 2
+    WTRMARK         = 1 << 1
+    OVERRUN         = 1
 
 ' Axis symbols for use throughout the driver
     X_AXIS          = 0
@@ -80,7 +96,7 @@ PUB Null{}
 ' This is not a top-level object
 
 #ifdef ADXL345_I2C
-PUB Start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
+PUB Startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O pin settings (I2C)
     if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
 }   I2C_HZ =< core#I2C_MAX_FREQ
@@ -96,7 +112,7 @@ PUB Start(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
     ' Lastly - make sure you have at least one free core/cog
     return FALSE
 #elseifdef ADXL345_SPI
-PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
+PUB Startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
 ' Start using custom I/O pin settings (SPI)
     if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and {
 }   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
@@ -113,7 +129,6 @@ PUB Start(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
     ' Lastly - make sure you have at least one free core/cog
     return FALSE
 #endif
-
 PUB Stop{}
 
 #ifdef ADXL345_I2C
@@ -136,6 +151,19 @@ PUB Preset_Active{}
 ' Like Defaults(), but sensor measurement active
     defaults{}
     accelopmode(MEAS)
+
+PUB Preset_ClickDet{}
+' Presets for click-detection
+    acceladcres(FULL)
+    accelscale(4)
+    acceldatarate(400)
+    accelaxisenabled(%111)
+    clickthresh(1_187500)
+    clickaxisenabled(%1_1_1)
+    clicktime(127_000)
+    doubleclickwindow(100_000)
+    clicklatency(150_000)
+    clickintenabled(TRUE)
 
 PUB AccelADCRes(bits): curr_res
 ' Set accelerometer ADC resolution, in bits
@@ -335,10 +363,134 @@ PUB CalibrateXLG{}
 '   (compatibility method)
     calibrateaccel{}
 
+PUB ClickAxisEnabled(mask): curr_mask
+' Enable click detection, per axis bitmask
+'   Valid values: %000..%111 (%xyz)
+'   Any other value polls the chip and returns the current setting
+    curr_mask := 0
+    readreg(core#TAP_AXES, 1, @curr_mask)
+    case mask
+        %000..%111:
+        other:
+            return curr_mask & core#TAPXYZ_BITS
+
+    mask := ((curr_mask & core#TAPXYZ_MASK) | mask)
+    writereg(core#TAP_AXES, 1, @mask)
+
+PUB Clicked{}: flag
+' Flag indicating the sensor was single-clicked
+    return ((interrupt{} & SING_TAP) <> 0)
+
+PUB ClickedInt{}: intstat
+' Clicked interrupt status
+    return (interrupt{} >> core#TAP) & core#TAP_BITS
+
+PUB ClickedX{}: flag
+' Flag indicating click event on X axis
+'   Returns: TRUE (-1) if click event detected
+    flag := 0
+    readreg(core#ACT_TAP_STATUS, 1, @flag)
+    return (((flag >> core#TAP_X_SRC) & 1) == 1)
+
+PUB ClickedY{}: flag
+' Flag indicating click event on Y axis
+'   Returns: TRUE (-1) if click event detected
+    flag := 0
+    readreg(core#ACT_TAP_STATUS, 1, @flag)
+    return (((flag >> core#TAP_X_SRC) & 1) == 1)
+
+PUB ClickedZ{}: flag
+' Flag indicating click event on Z axis
+'   Returns: TRUE (-1) if click event detected
+    flag := 0
+    readreg(core#ACT_TAP_STATUS, 1, @flag)
+    return (((flag >> core#TAP_X_SRC) & 1) == 1)
+
+PUB ClickedXYZ{}: mask
+' Flag indicating click event on one or more axes
+'   Returns: %xyz event bitmask (0 = no click, 1 = clicked)
+    mask := 0
+    readreg(core#ACT_TAP_STATUS, 1, @mask)
+    return (mask & core#TAP_SRC_BITS)
+
+PUB ClickIntEnabled(state): curr_state | tmp
+' Enable click interrupts
+'   Valid values: TRUE (-1 or 1), FALSE (0)
+'   Any other value polls the chip and returns the current setting
+    curr_state := intmask(-2)
+    case ||(state)
+        0:
+        1:
+            state := %11 << core#TAP            ' enable both single & dbl tap
+        other:
+            return ((curr_state >> core#TAP) & core#TAP_BITS)
+
+    state := ((curr_state & core#TAP_MASK) | state)
+    intmask(state)
+
+PUB ClickLatency(clat): curr_clat
+' Set minimum interval between detection of first click and start of
+'   window during which a second click can be detected, in usec
+'   Valid values: 0..318_750 (will be rounded to nearest multiple of 1_250)
+'   Any other value polls the chip and returns the current setting
+    case clat
+        0..318_750:
+            clat /= SCL_TAPLAT
+            writereg(core#LATENT, 1, @clat)
+        other:
+            curr_clat := 0
+            readreg(core#LATENT, 1, @curr_clat)
+            return curr_clat * SCL_TAPLAT
+
+PUB ClickThresh(level): curr_lvl
+' Set threshold for recognizing a click, in micro-g's
+'   Valid values: 0..16_000_000 (will be rounded to nearest multiple of 62_500)
+'   Any other value polls the chip and returns the current setting
+    case level
+        0..16_000_000:
+            level /= SCL_TAPTHRESH
+            writereg(core#THRESH_TAP, 1, @level)
+        other:
+            curr_lvl := 0
+            readreg(core#THRESH_TAP, 1, @curr_lvl)
+            return curr_lvl * SCL_TAPTHRESH
+
+PUB ClickTime(usec): curr_ctime
+' Set maximum elapsed interval between start of click and end of click, in uSec
+' Events longer than this will not be considered a click
+'   Valid values: 0..159_375 (will be rounded to nearest multiple of 625)
+'   Any other value polls the chip and returns the current setting
+    case usec
+        0..159_375:
+            usec /= SCL_TAPDUR
+            writereg(core#DUR, 1, @usec)
+        other:
+            curr_ctime := 0
+            readreg(core#DUR, 1, @curr_ctime)
+            return curr_ctime * SCL_TAPDUR
+
 PUB DeviceID{}: id
 ' Read device identification
     id := 0
     readreg(core#DEVID, 1, @id)
+
+PUB DoubleClicked{}: flag
+' Flag indicating sensor was double-clicked
+    return ((interrupt{} & DBL_TAP) == 1)
+
+PUB DoubleClickWindow(dctime): curr_dctime
+' Set window of time after ClickLatency() elapses that a second click
+'   can be detected
+'   Valid values: 0..318_750 (will be rounded to nearest multiple of 1_250)
+'   Any other value polls the chip and returns the current setting
+    case dctime
+        0..318_750:
+            dctime /= SCL_DTAPWINDOW
+            writereg(core#WINDOW, 1, @dctime)
+        other:
+            curr_dctime := 0
+            readreg(core#WINDOW, 1, @curr_dctime)
+            return curr_dctime * SCL_DTAPWINDOW
 
 PUB FIFOMode(mode): curr_mode
 ' Set FIFO operation mode
@@ -378,12 +530,22 @@ PUB GyroDPS(x, y, z)
 PUB GyroScale(scale)
 ' Dummy method
 
-PUB Interrupt{}
-' Dummy method
+PUB Interrupt{}: int_src
+' Flag indicating interrupt(s) asserted
+'   Bits: 76543210
+'       7: Data Ready
+'       6: Single-tap
+'       5: Double-tap
+'       4: Activity
+'       3: Inactivity
+'       2: Free-fall
+'       1: Watermark
+'       0: Overrun
+    readreg(core#INT_SOURCE, 1, @int_src)
 
 PUB IntMask(mask): curr_mask
 ' Set interrupt mask
-'   Bits:   76543210
+'   Bits: 76543210
 '       7: Data Ready (Always enabled, regardless of setting)
 '       6: Single-tap
 '       5: Double-tap
