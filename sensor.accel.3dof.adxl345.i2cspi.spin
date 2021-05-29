@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated May 28, 2021
+    Updated May 29, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -153,7 +153,7 @@ PUB AccelADCRes(bits): curr_res
         other:
             return ((curr_res >> core#FULL_RES) & 1)
 
-    bits := ((curr_res & core#FULL_RES_MASK) | bits) & core#DATA_FORMAT_MASK
+    bits := ((curr_res & core#FULL_RES_MASK) | bits)
     writereg(core#DATA_FORMAT, 1, @bits)
 
 PUB AccelAxisEnabled(xyz_mask)
@@ -223,7 +223,7 @@ PUB AccelDataRate(rate): curr_rate
             return lookupz(curr_rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13,{
 }           6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
 
-    rate := ((curr_rate & core#RATE_MASK) | rate) & core#BW_RATE_MASK
+    rate := ((curr_rate & core#RATE_MASK) | rate)
     writereg(core#BW_RATE, 1, @rate)
 
 PUB AccelDataReady{}: flag
@@ -254,7 +254,7 @@ PUB AccelOpMode(mode): curr_mode
         other:
             return ((curr_mode >> core#MEAS) & 1)
 
-    mode := ((curr_mode & core#MEAS_MASK) | mode) & core#PWR_CTL_MASK
+    mode := ((curr_mode & core#MEAS_MASK) | mode)
     writereg(core#PWR_CTL, 1, @mode)
 
 PUB AccelScale(scale): curr_scl
@@ -270,7 +270,6 @@ PUB AccelScale(scale): curr_scl
                 _ares := 4_300                  '   is always 4.3mg/LSB
             else                                ' 10-bit res is scale-dependent
                 _ares := lookupz(scale: 4_300, 8_700, 17_500, 34_500)
-            scale <<= core#RANGE
         other:
             curr_scl &= core#RANGE_BITS
             return lookupz(curr_scl: 2, 4, 8, 16)
@@ -288,9 +287,9 @@ PUB AccelSelfTest(state): curr_state
         0, 1:
             state := ||(state) << core#SELF_TEST
         other:
-            return (((curr_state >> core#SELF_TEST) & %1) == 1)
+            return (((curr_state >> core#SELF_TEST) & 1) == 1)
 
-    state := ((curr_state & core#SELF_TEST_MASK) | state) & core#DATA_FORMAT_MASK
+    state := ((curr_state & core#SELF_TEST_MASK) | state)
     writereg(core#DATA_FORMAT, 1, @state)
 
 PUB CalibrateAccel{} | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
@@ -358,7 +357,7 @@ PUB FIFOMode(mode): curr_mode
         other:
             return (curr_mode >> core#FIFO_MODE) & core#FIFO_MODE_BITS
 
-    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode) & core#FIFO_CTL_MASK
+    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode)
     writereg(core#FIFO_CTL, 1, @mode)
 
 PUB GyroAxisEnabled(xyzmask)
