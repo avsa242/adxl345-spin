@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated May 29, 2021
+    Updated May 30, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -151,15 +151,17 @@ PUB Preset_Active()
 
 PUB Preset_ClickDet()
 ' Presets for click-detection
+    accelopmode(MEAS)
     acceladcres(FULL)
     accelscale(4)
-    acceldatarate(400)
+    acceldatarate(100)
     accelaxisenabled(%111)
-    clickthresh(1_187500)
-    clickaxisenabled(%1_1_1)
-    clicktime(127_000)
-    doubleclickwindow(100_000)
-    clicklatency(150_000)
+    clickthresh(2_500000)                       ' must be > 2.5g to be a tap
+    clickaxisenabled(%001)                      ' watch z-axis only
+    clicktime(5_000)                            ' must be < 5ms to be a tap
+    clicklatency(100_000)                       ' wait for 100ms after 1st tap
+                                                '   to check for second tap
+    doubleclickwindow(300_000)                  ' check second tap for 300ms
     clickintenabled(TRUE)
 
 PUB AccelADCRes(bits): curr_res
@@ -376,10 +378,12 @@ PUB ClickAxisEnabled(mask): curr_mask
 
 PUB Clicked(): flag
 ' Flag indicating the sensor was single-clicked
+'   NOTE: Calling this method clears all interrupts
     return ((interrupt() & SING_TAP) <> 0)
 
 PUB ClickedInt(): intstat
 ' Clicked interrupt status
+'   NOTE: Calling this method clears all interrupts
     return (interrupt() >> core.TAP) & core.TAP_BITS
 
 PUB ClickedX(): flag
@@ -426,7 +430,7 @@ PUB ClickIntEnabled(state): curr_state | tmp
     intmask(state)
 
 PUB ClickLatency(clat): curr_clat
-' Set minimum interval between detection of first click and start of
+' Set minimum interval/wait between detection of first click and start of
 '   window during which a second click can be detected, in usec
 '   Valid values: 0..318_750 (will be rounded to nearest multiple of 1_250)
 '   Any other value polls the chip and returns the current setting
@@ -473,7 +477,8 @@ PUB DeviceID(): id
 
 PUB DoubleClicked(): flag
 ' Flag indicating sensor was double-clicked
-    return ((interrupt() & DBL_TAP) == 1)
+'   NOTE: Calling this method clears all interrupts
+    return ((interrupt() & DBL_TAP) <> 0)
 
 PUB DoubleClickWindow(dctime): curr_dctime
 ' Set window of time after ClickLatency() elapses that a second click
@@ -538,6 +543,7 @@ PUB Interrupt(): int_src
 '       2: Free-fall
 '       1: Watermark
 '       0: Overrun
+'   NOTE: Calling this method clears all interrupts
     readreg(core.INT_SOURCE, 1, @int_src)
 
 PUB IntMask(mask): curr_mask

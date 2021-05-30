@@ -51,7 +51,7 @@ CON
         TAPXYZ                  = 0
         TAPXYZ_BITS             = %111
         SUPPRESS_MASK           = (1 << SUPPRESS) ^ TAP_AXES_MASK
-        TAPXYZ_MASK             = TAP_BITS ^ TAP_AXES_MASK
+        TAPXYZ_MASK             = TAPXYZ_BITS ^ TAP_AXES_MASK
 
     ACT_TAP_STATUS              = $2B
     ACT_TAP_STATUS_MASK         = $7F
