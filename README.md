@@ -15,6 +15,7 @@ This is a P8X32A/Propeller, P2X8C4M64P/Propeller 2 driver object for the Analog 
 * Set interrupt mask
 * Set output data rate
 * Set full-scale range
+* Single and double-click/tap detection (all related on-chip parameters configurable)
 
 ## Requirements
 
