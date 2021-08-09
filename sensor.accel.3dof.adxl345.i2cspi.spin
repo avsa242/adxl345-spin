@@ -530,7 +530,14 @@ PUB FIFOMode(mode): curr_mode
     mode := ((curr_mode & core#FIFO_MODE_MASK) | mode)
     writereg(core#FIFO_CTL, 1, @mode)
 
-PUB FIFOTrigIntRouting(pin): curr_pin
+PUB FIFOTriggered{}: flag   ' XXX tentatively named
+' Flag indicating FIFO trigger interrupt asserted
+'   Returns: TRUE (-1) or FALSE (0)
+    flag := 0
+    readreg(core#FIFO_STATUS, 1, @flag)
+    return (((flag >> core#FIFO_TRIG) & 1) == 1)
+
+PUB FIFOTrigIntRouting(pin): curr_pin   ' XXX tentatively named
 ' Set routing of FIFO Trigger interrupt to INT1 or INT2 pin
 '   Valid values: INT1 (1), INT2 (2)
 '   Any other value polls the chip and returns the current setting
