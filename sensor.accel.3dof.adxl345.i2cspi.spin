@@ -497,6 +497,19 @@ PUB DoubleClickWindow(dctime): curr_dctime
             readreg(core#WINDOW, 1, @curr_dctime)
             return curr_dctime * SCL_DTAPWINDOW
 
+PUB FIFOThreshold(level): curr_lvl
+' Set FIFO watermark/threshold level
+'   Valid values: 0..31
+    curr_lvl := 0
+    readreg(core#FIFO_CTL, 1, @curr_lvl)
+    case level
+        0..31:
+        other:
+            return (curr_lvl & core#SAMPLES_BITS)
+
+    level := ((curr_lvl & core#SAMPLES_MASK) | level)
+    writereg(core#FIFO_CTL, 1, @level)
+
 PUB FIFOMode(mode): curr_mode
 ' Set FIFO operation mode
 '   Valid values:
