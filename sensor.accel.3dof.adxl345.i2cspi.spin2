@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated May 30, 2021
+    Updated Aug 9, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -513,6 +513,13 @@ PUB FIFOMode(mode): curr_mode
 
     mode := ((curr_mode & core.FIFO_MODE_MASK) | mode)
     writereg(core.FIFO_CTL, 1, @mode)
+
+PUB FIFOUnreadSamples(): nr_samples
+' Number of unread samples stored in FIFO
+'   Returns: 0..32
+    nr_samples := 0
+    readreg(core.FIFO_STATUS, 1, @nr_samples)
+    nr_samples &= core.ENTRIES_BITS
 
 PUB GyroAxisEnabled(xyzmask)
 ' Dummy method
