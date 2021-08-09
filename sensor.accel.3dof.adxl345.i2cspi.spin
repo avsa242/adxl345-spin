@@ -530,6 +530,21 @@ PUB FIFOMode(mode): curr_mode
     mode := ((curr_mode & core#FIFO_MODE_MASK) | mode)
     writereg(core#FIFO_CTL, 1, @mode)
 
+PUB FIFOTrigIntRouting(pin): curr_pin
+' Set routing of FIFO Trigger interrupt to INT1 or INT2 pin
+'   Valid values: INT1 (1), INT2 (2)
+'   Any other value polls the chip and returns the current setting
+    curr_pin := 0
+    readreg(core#FIFO_CTL, 1, @curr_pin)
+    case pin
+        1, 2:
+            pin := (pin -1) << core#TRIGGER
+        other:
+            return (((curr_pin >> core#TRIGGER) & 1) + 1)
+
+    pin := ((curr_pin & core#TRIGGER_MASK) | pin)
+    writereg(core#FIFO_CTL, 1, @pin)
+
 PUB FIFOUnreadSamples{}: nr_samples
 ' Number of unread samples stored in FIFO
 '   Returns: 0..32
