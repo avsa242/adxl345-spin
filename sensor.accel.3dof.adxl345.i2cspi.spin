@@ -497,6 +497,28 @@ PUB DoubleClickWindow(dctime): curr_dctime
             readreg(core#WINDOW, 1, @curr_dctime)
             return curr_dctime * SCL_DTAPWINDOW
 
+PUB FIFOMode(mode): curr_mode
+' Set FIFO operation mode
+'   Valid values:
+'      *BYPASS (%00): Don't use the FIFO functionality
+'       FIFO (%01): FIFO enabled (stops collecting data when full, but device continues to operate)
+'       STREAM (%10): FIFO enabled (continues accumulating samples; holds latest 32 samples)
+'       TRIGGER (%11): FIFO enabled (holds latest 32 samples. When trigger event occurs, the last n samples,
+'           set by FIFOSamples(), are kept. The FIFO then collects samples as long as it isn't full.
+'   Any other value polls the chip and returns the current setting
+'   NOTE: FIFO data is read by reading AccelData(), or any scaled unit method
+'       A complete dataset (x, y, z) is equivalent to one FIFO sample
+    curr_mode := 0
+    readreg(core#FIFO_CTL, 1, @curr_mode)
+    case mode
+        BYPASS, FIFO, STREAM, TRIGGER:
+            mode <<= core#FIFO_MODE
+        other:
+            return (curr_mode >> core#FIFO_MODE) & core#FIFO_MODE_BITS
+
+    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode)
+    writereg(core#FIFO_CTL, 1, @mode)
+
 PUB FIFOThreshold(level): curr_lvl
 ' Set FIFO watermark/threshold level
 '   Valid values: 0..31
@@ -509,26 +531,6 @@ PUB FIFOThreshold(level): curr_lvl
 
     level := ((curr_lvl & core#SAMPLES_MASK) | level)
     writereg(core#FIFO_CTL, 1, @level)
-
-PUB FIFOMode(mode): curr_mode
-' Set FIFO operation mode
-'   Valid values:
-'      *BYPASS (%00): Don't use the FIFO functionality
-'       FIFO (%01): FIFO enabled (stops collecting data when full, but device continues to operate)
-'       STREAM (%10): FIFO enabled (continues accumulating samples; holds latest 32 samples)
-'       TRIGGER (%11): FIFO enabled (holds latest 32 samples. When trigger event occurs, the last n samples,
-'           set by FIFOSamples(), are kept. The FIFO then collects samples as long as it isn't full.
-'   Any other value polls the chip and returns the current setting
-    curr_mode := 0
-    readreg(core#FIFO_CTL, 1, @curr_mode)
-    case mode
-        BYPASS, FIFO, STREAM, TRIGGER:
-            mode <<= core#FIFO_MODE
-        other:
-            return (curr_mode >> core#FIFO_MODE) & core#FIFO_MODE_BITS
-
-    mode := ((curr_mode & core#FIFO_MODE_MASK) | mode)
-    writereg(core#FIFO_CTL, 1, @mode)
 
 PUB FIFOTriggered{}: flag   ' XXX tentatively named
 ' Flag indicating FIFO trigger interrupt asserted
