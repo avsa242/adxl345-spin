@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 9, 2021
+    Updated Aug 10, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -49,6 +49,7 @@ CON
 ' Operating modes
     STANDBY         = 0
     MEAS            = 1
+    LOWPWR          = 3
 
 ' FIFO modes
     BYPASS          = %00
@@ -270,22 +271,29 @@ PUB AccelG(ptr_x, ptr_y, ptr_z) | tmpx, tmpy, tmpz
     long[ptr_y] := tmpy * _ares
     long[ptr_z] := tmpz * _ares
 
-PUB AccelOpMode(mode): curr_mode
+PUB AccelOpMode(mode): curr_mode | curr_lp, lpwr
 ' Set operating mode
 '   Valid values:
 '       STANDBY (0): Standby
 '       MEAS (1): Measurement mode
+'       LOWPWR (3): Low-power measurement mode
+'   NOTE: LOWPWR reduces power consumption, but has somewhat higher noise
 '   Any other value polls the chip and returns the current setting
-    curr_mode := 0
+    curr_mode := curr_lp := 0
     readreg(core#PWR_CTL, 1, @curr_mode)
+    readreg(core#BW_RATE, 1, @curr_lp)          ' read current LOW_POWER bit
     case mode
-        STANDBY, MEAS:
-            mode <<= core#MEAS
+        STANDBY, MEAS, LOWPWR:
+            lpwr := ((mode & 2) >> 1) << core#LOW_PWR
+            mode := (mode & 1) << core#MEAS     ' only LSB used in PWR_CTRL
         other:
-            return ((curr_mode >> core#MEAS) & 1)
+            curr_lp := (curr_lp >> core#LOW_PWR) & 1
+            return ((curr_mode >> core#MEAS) & 1) | (curr_lp << 1)
 
     mode := ((curr_mode & core#MEAS_MASK) | mode)
+    lpwr := ((curr_lp & core#LOW_PWR_MASK) | lpwr)
     writereg(core#PWR_CTL, 1, @mode)
+    writereg(core#BW_RATE, 1, @lpwr)
 
 PUB AccelScale(scale): curr_scl
 ' Set measurement range of the accelerometer, in g's
