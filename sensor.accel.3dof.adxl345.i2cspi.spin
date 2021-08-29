@@ -617,6 +617,20 @@ PUB InactThresh(thresh): curr_thr
             readreg(core#THRESH_INACT, 1, @curr_thr)
             return (curr_thr * 62_500)
 
+PUB InactTime(itime): curr_time
+' Set inactivity time, in seconds
+'   Valid values: 0..255
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Setting this to 0 will generate an interrupt when the acceleration
+'       measures less than that set with InactThresh()
+    case itime
+        0..255:
+            writereg(core#TIME_INACT, 1, @itime)
+        other:
+            curr_time := 0
+            readreg(core#TIME_INACT, 1, @curr_time)
+            return
+
 PUB Interrupt{}: int_src
 ' Flag indicating interrupt(s) asserted
 '   Bits: 76543210
