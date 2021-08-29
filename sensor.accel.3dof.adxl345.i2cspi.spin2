@@ -599,6 +599,21 @@ PUB GyroDPS(x, y, z)
 PUB GyroScale(scale)
 ' Dummy method
 
+PUB InactThresh(thresh): curr_thr
+' Set inactivity threshold, in micro-g's
+'   Valid values: 0..15_937500 (15.9375g)
+'   Any other value polls the chip and returns the current setting
+'   NOTE: If the inactivity interrupt is enabled, setting this to 0 may
+'       result in undesirable behavior.
+    case thresh
+        0..15_937500:
+            thresh /= 62_500                    ' 62.5mg per LSB
+            writereg(core.THRESH_INACT, 1, @thresh)
+        other:
+            curr_thr := 0
+            readreg(core.THRESH_INACT, 1, @curr_thr)
+            return (curr_thr * 62_500)
+
 PUB Interrupt(): int_src
 ' Flag indicating interrupt(s) asserted
 '   Bits: 76543210
