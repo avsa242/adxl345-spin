@@ -21,10 +21,10 @@ CON
     LED         = cfg#LED1
     SER_BAUD    = 115_200
 
-    CS_PIN      = 0                             ' SPI
-    SCL_PIN     = 1                             ' SPI, I2C
-    SDA_PIN     = 2                             ' SPI, I2C
-    SDO_PIN     = 3                             ' SPI
+    CS_PIN      = 1                             ' SPI
+    SCL_PIN     = 2                             ' SPI, I2C
+    SDA_PIN     = 3                             ' SPI, I2C
+    SDO_PIN     = 4                             ' SPI
     I2C_HZ      = 400_000                       ' I2C (max: 400_000)
     ADDR_BITS   = 0                             ' I2C
 ' --

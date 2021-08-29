@@ -330,6 +330,21 @@ PUB AccelSelfTest(state): curr_state
     state := ((curr_state & core#SELF_TEST_MASK) | state)
     writereg(core#DATA_FORMAT, 1, @state)
 
+PUB ActThresh(thresh): curr_thr
+' Set activity threshold, in micro-g's
+'   Valid values: 0..15_937500 (15.9375g)
+'   Any other value polls the chip and returns the current setting
+'   NOTE: If the activity interrupt is enabled, setting this to 0 may
+'       result in undesirable behavior.
+    case thresh
+        0..15_937500:
+            thresh /= 62_500                    ' 62.5mg per LSB
+            writereg(core#THRESH_ACT, 1, @thresh)
+        other:
+            curr_thr := 0
+            readreg(core#THRESH_ACT, 1, @curr_thr)
+            return (curr_thr * 62_500)
+
 PUB CalibrateAccel{} | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
 ' Calibrate the accelerometer
 '   NOTE: The accelerometer must be oriented with the package top facing up for this method to be successful
