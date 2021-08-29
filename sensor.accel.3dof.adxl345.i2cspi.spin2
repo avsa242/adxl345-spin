@@ -705,6 +705,28 @@ PUB IntMask(mask): curr_mask
             readreg(core.INT_ENABLE, 1, @curr_mask)
             return curr_mask
 
+PUB IntRouting(mask): curr_mask
+' Set interrupt pin routing mask
+'   Bit clear (0): route to INT1 pin, set (1): route to INT2 pin
+'   Bits: 76543210
+'       7: Data Ready
+'       6: Single-tap
+'       5: Double-tap
+'       4: Activity
+'       3: Inactivity
+'       2: Free-fall
+'       1: Watermark
+'       0: Overrun
+'   Valid values: %00000000..%11111111
+'   Any other value polls the chip and returns the current setting
+    case mask
+        %0000_0000..%1111_1111:
+            writereg(core.INT_MAP, 1, @mask)
+        other:
+            curr_mask := 0
+            readreg(core.INT_MAP, 1, @curr_mask)
+            return curr_mask
+
 PUB MagBias(x, y, z, rw)
 ' Dummy method
 
