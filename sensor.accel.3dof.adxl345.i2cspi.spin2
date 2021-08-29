@@ -3,9 +3,10 @@
     Filename: sensor.accel.3dof.adxl345.i2cspi.spin2
     Author: Jesse Burt
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
+        (P2 version)
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 10, 2021
+    Updated Aug 29, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -326,6 +327,26 @@ PUB AccelSelfTest(state): curr_state
 
     state := ((curr_state & core.SELF_TEST_MASK) | state)
     writereg(core.DATA_FORMAT, 1, @state)
+
+PUB ActAxisEnabled(mask): curr_mask
+' Enable activity threshold interrupt per axis, using bitmask
+'   Valid values:
+'       Bits 2..0 (%XYZ):
+'           1: axis enabled
+'           0: axis disabled
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Functionally, enabled axes are logically OR'd (i.e., the interrupt
+'       will trigger when _any_ of the axes exceeds the ActThresh() setting)
+    curr_mask := 0
+    readreg(core.ACT_INACT_CTL, 1, @curr_mask)
+    case mask
+        %000..%111:
+            mask <<= core.ACT_EN
+        other:
+            return ((curr_mask >> core.ACT_EN) & core.ACT_EN_BITS)
+
+    mask := ((curr_mask & core.ACT_EN_MASK) | mask)
+    writereg(core.ACT_INACT_CTL, 1, @mask)
 
 PUB ActThresh(thresh): curr_thr
 ' Set activity threshold, in micro-g's
