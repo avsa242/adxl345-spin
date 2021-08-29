@@ -350,6 +350,29 @@ PUB ActAxisEnabled(mask): curr_mask
     mask := ((curr_mask & core#ACT_EN_MASK) | mask)
     writereg(core#ACT_INACT_CTL, 1, @mask)
 
+PUB ActInactLink(state): curr_state | opmode_orig
+' Serially link activity and inactivity functions
+'   Valid values:
+'       FALSE (0): inactivity and activity functions operate concurrently
+'       TRUE (-1 or 1): activity function delayed until inactivity is detected
+'           Once activity is detected, inactivity detection begins again
+'   Any other value polls the chip and returns the current setting
+    curr_state := 0
+    readreg(core#PWR_CTL, 1, @curr_state)
+    case ||(state)
+        0, 1:
+            state := ||(state) << core#LINK
+        other:
+            return (((curr_state >> core#LINK) & 1) == 1)
+
+    opmode_orig := accelopmode(-2)              ' cache user's operating mode
+
+    state := ((curr_state & core#LINK_MASK) | state)
+    writereg(core#PWR_CTL, 1, @state)
+
+    accelopmode(STANDBY)                        ' set to standby temporarily
+    accelopmode(opmode_orig)                    ' restore user's operating mode
+
 PUB ActThresh(thresh): curr_thr
 ' Set activity threshold, in micro-g's
 '   Valid values: 0..15_937500 (15.9375g)
