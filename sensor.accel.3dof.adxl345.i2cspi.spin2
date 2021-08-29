@@ -620,6 +620,27 @@ PUB GyroDPS(x, y, z)
 PUB GyroScale(scale)
 ' Dummy method
 
+PUB InactAxisEnabled(mask): curr_mask
+' Enable inactivity threshold interrupt per axis, using bitmask
+'   Valid values:
+'       Bits 2..0 (%XYZ):
+'           1: axis enabled
+'           0: axis disabled
+'   Any other value polls the chip and returns the current setting
+'   NOTE: Functionally, enabled axes are logically AND'd (i.e., the interrupt
+'       will trigger only when _all_ of the axes falls below the InactThresh()
+'       setting for the time set by InactTime())
+    curr_mask := 0
+    readreg(core.ACT_INACT_CTL, 1, @curr_mask)
+    case mask
+        %000..%111:
+            mask <<= core.INACT_EN
+        other:
+            return ((curr_mask >> core.INACT_EN) & core.INACT_EN_BITS)
+
+    mask := ((curr_mask & core.INACT_EN_MASK) | mask)
+    writereg(core.ACT_INACT_CTL, 1, @mask)
+
 PUB InactThresh(thresh): curr_thr
 ' Set inactivity threshold, in micro-g's
 '   Valid values: 0..15_937500 (15.9375g)
