@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 29, 2021
+    Updated Aug 30, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -387,6 +387,29 @@ PUB ActThresh(thresh): curr_thr
             curr_thr := 0
             readreg(core#THRESH_ACT, 1, @curr_thr)
             return (curr_thr * 62_500)
+
+PUB AutoSleep(state): curr_state | opmode_orig
+' Enable automatic transition to sleep state when inactive
+'   Valid values: TRUE (-1 or 1), FALSE (0)
+'   Any other value polls the chip and returns the current setting
+'   NOTE: ActInactLink() must be set to TRUE for this to function
+'   NOTE: Transition back to normal operating mode will also occur
+'       if the activity interrupt is also set
+    curr_state := 0
+    readreg(core#PWR_CTL, 1, @curr_state)
+    case ||(state)
+        0, 1:
+            state := ||(state) << core#AUTO_SLP
+        other:
+            return (((curr_state >> core#AUTO_SLP) & 1) == 1)
+
+    opmode_orig := accelopmode(-2)              ' cache user's operating mode
+
+    state := ((curr_state & core#AUTO_SLP_MASK) | state)
+    writereg(core#PWR_CTL, 1, @state)
+
+    accelopmode(STANDBY)                        ' set to standby temporarily
+    accelopmode(opmode_orig)                    ' restore user's operating mode
 
 PUB CalibrateAccel{} | axis, orig_res, orig_scl, orig_drate, tmp[3], tmpx, tmpy, tmpz, samples, scale
 ' Calibrate the accelerometer
