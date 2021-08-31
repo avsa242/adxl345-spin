@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 30, 2021
+    Updated Aug 31, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
