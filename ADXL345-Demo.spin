@@ -5,12 +5,13 @@
     Description: Demo of the ADXL345 driver
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 9, 2021
+    Updated Sep 28, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
 #define ADXL345_I2C
-'#define ADXL345_SPI
+'#define ADXL345_SPI3W
+'#define ADXL345_SPI4W
 
 CON
 
@@ -21,10 +22,10 @@ CON
     LED         = cfg#LED1
     SER_BAUD    = 115_200
 
-    CS_PIN      = 1                             ' SPI
-    SCL_PIN     = 2                             ' SPI, I2C
-    SDA_PIN     = 3                             ' SPI, I2C
-    SDO_PIN     = 4                             ' SPI
+    CS_PIN      = 0                             ' SPI
+    SCL_PIN     = 1                             ' SPI, I2C
+    SDA_PIN     = 2                             ' SPI, I2C
+    SDO_PIN     = 3                             ' SPI (4-wire only)
     I2C_HZ      = 400_000                       ' I2C (max: 400_000)
     ADDR_BITS   = 0                             ' I2C
 ' --
@@ -111,9 +112,12 @@ PUB Setup{}
 #ifdef ADXL345_I2C
     if accel.startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS)
         ser.strln(string("ADXL345 driver started (I2C)"))
-#elseifdef ADXL345_SPI
+#elseifdef ADXL345_SPI3W
+    if accel.startx(CS_PIN, SCL_PIN, SDA_PIN)
+        ser.strln(string("ADXL345 driver started (SPI-3 wire)"))
+#elseifdef ADXL345_SPI4W
     if accel.startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN)
-        ser.strln(string("ADXL345 driver started (SPI)"))
+        ser.strln(string("ADXL345 driver started (SPI-4 wire)"))
 #endif
     else
         ser.str(string("ADXL345 driver failed to start - halting"))
