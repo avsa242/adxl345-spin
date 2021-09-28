@@ -117,7 +117,7 @@ PUB Setup{}
         ser.strln(string("ADXL345 driver started (SPI-4 wire)"))
 #endif
     else
-        ser.str(string("ADXL345 driver failed to start - halting"))
+        ser.strln(string("ADXL345 driver failed to start - halting"))
         repeat
 
 DAT

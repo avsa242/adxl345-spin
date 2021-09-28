@@ -6,7 +6,7 @@
         (P2 version)
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Aug 9, 2021
+    Updated Sep 28, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -117,7 +117,7 @@ PUB Setup()
         ser.strln(string("ADXL345 driver started (SPI-4 wire)"))
 #endif
     else
-        ser.str(string("ADXL345 driver failed to start - halting"))
+        ser.strln(string("ADXL345 driver failed to start - halting"))
         repeat
 
 DAT
