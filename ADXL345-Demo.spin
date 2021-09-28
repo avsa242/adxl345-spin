@@ -9,9 +9,6 @@
     See end of file for terms of use.
     --------------------------------------------
 }
-#define ADXL345_I2C
-'#define ADXL345_SPI3W
-'#define ADXL345_SPI4W
 
 CON
 
