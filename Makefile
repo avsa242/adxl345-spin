@@ -1,6 +1,6 @@
 # adxl345-spin Makefile - requires GNU Make, or compatible
 # Variables below can be overridden on the command line
-#	e.g. IFACE=ADXL345_SPI3W make
+#      e.g. IFACE=ADXL345_SPI3W make
 
 # P1, P2 device nodes and baudrates
 #P1DEV=

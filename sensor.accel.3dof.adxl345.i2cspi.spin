@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2021
     Started Mar 14, 2020
-    Updated Sep 28, 2021
+    Updated Oct 23, 2021
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -240,12 +240,15 @@ PUB AccelBias(bias_x, bias_y, bias_z, rw) | tmp
             case bias_x
                 -128..127:
                 other:
+                    return                      ' out of range
             case bias_y
                 -128..127:
                 other:
+                    return                      ' out of range
             case bias_z
                 -128..127:
                 other:
+                    return                      ' out of range
             writereg(core#OFSX, 1, @bias_x)
             writereg(core#OFSY, 1, @bias_y)
             writereg(core#OFSZ, 1, @bias_z)
