@@ -14,7 +14,7 @@ This is a P8X32A/Propeller, P2X8C4M64P/Propeller 2 driver object for the Analog 
 * Set output data rate
 * Set operating mode (standby, measure, low-power)
 * Set accelerometer full-scale
-* Set interrupt flags, INT1/2 routing
+* Set interrupt flags, INT1/2 routing, INT1/2 active state
 * Read flags: accelerometer data ready, data overrun, interrupts
 * 10-bit and 'full' sensor ADC resolution supported
 * Click/Pulse/Tap-detection
