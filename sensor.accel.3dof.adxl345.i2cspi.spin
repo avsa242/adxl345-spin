@@ -85,6 +85,10 @@ CON
     Y_AXIS          = 1
     Z_AXIS          = 2
 
+' Interrupt active state
+    LOW             = 0
+    HIGH            = 1
+
 VAR
 
     long _ares
@@ -794,6 +798,23 @@ PUB InFreeFall{}: flag
 '       FALSE (0): device isn't in free-fall
     flag := 0
     return ((interrupt{} & INT_FFALL) == INT_FFALL)
+
+PUB IntActiveState(state): curr_state
+' Set interrupt pin active state/logic level
+'   Valid values: LOW (0), HIGH (1)
+'   Any other value polls the chip and returns the current setting
+    curr_state := 0
+    readreg(core#DATA_FORMAT, 1, @curr_state)
+    case state
+        LOW, HIGH:
+            ' invert the passed param;
+            '   0 is active high, 1 is active low
+            state := ((state ^ 1) << core#INT_INVERT)
+        other:
+            return (((curr_state ^ 1) >> core#INT_INVERT) & 1)
+
+    state := ((curr_state & core#INT_INVERT_MASK) | state)
+    writereg(core#DATA_FORMAT, 1, @state)
 
 PUB Interrupt{}: int_src
 ' Flag indicating interrupt(s) asserted
