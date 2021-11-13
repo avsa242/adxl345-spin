@@ -8,28 +8,35 @@ This is a P8X32A/Propeller, P2X8C4M64P/Propeller 2 driver object for the Analog 
 ## Salient Features
 
 * I2C connection at up to 400kHz, SPI connection (4-wire) at up to 1MHz (P1), ~5MHz (P2)
-* Read raw accelerometer data, or data in micro-g's
-* Change operating mode (standby, measure)
-* Data ready and overrun flags
-* 10-bit and 'full' sensor ADC resolution supported
-* Set interrupt mask
+* Supports default or alternate I2C address
+* Manually or automatically set bias offsets (on-chip)
+* Read accelerometer data in ADC words, or micro-g's
 * Set output data rate
-* Set full-scale range
-* Single and double-click/tap detection (all related on-chip parameters configurable)
+* Set operating mode (standby, measure, low-power)
+* Set accelerometer full-scale
+* Set interrupt flags, INT1/2 routing
+* Read flags: accelerometer data ready, data overrun, interrupts
+* 10-bit and 'full' sensor ADC resolution supported
+* Click/Pulse/Tap-detection
+* Free-fall detection
+* Inactivity detection/auto-sleep
 
 ## Requirements
 
 P1/SPIN1:
 * spin-standard-library
-* 1 extra core/cog for the PASM SPI engine
+* 1 extra core/cog for the PASM SPI or I2C engine (none if SPIN engine is used)
 
 P2/SPIN2:
 * p2-spin-standard-library
 
 ## Compiler Compatibility
 
-* P1/SPIN1: OpenSpin (tested with 1.00.81)
-* P2/SPIN2: FlexSpin (tested with 5.5.0)
+* P1/SPIN1 OpenSpin (bytecode): OK, tested with 1.00.81
+* P1/SPIN1 FlexSpin (bytecode): OK, tested with 5.9.4-beta
+* P1/SPIN1 FlexSpin (native): OK, tested with 5.9.4-beta
+* ~~P2/SPIN2 FlexSpin (bytecode): FTBFS, tested with 5.9.4-beta~~
+* P2/SPIN2 FlexSpin (native): OK, tested with 5.9.4-beta
 * ~~BST~~ (incompatible - no preprocessor)
 * ~~Propeller Tool~~ (incompatible - no preprocessor)
 * ~~PNut~~ (incompatible - no preprocessor)
@@ -39,14 +46,3 @@ P2/SPIN2:
 * Very early in development - may malfunction, or outright fail to build
 * SPI mode only supports 4-wire SPI connected chips
 
-## TODO
-
-- [x] Add calibration/offset support
-- [ ] Add explicit sleep and auto-sleep support
-- [ ] Add low-power mode support
-- [ ] Add 3-wire SPI support
-- [x] Add I2C support
-- [ ] Expand FIFO support (currently, FIFO modes can be enabled, but no specific FIFO handling exists)
-- [x] Add support for tap and double-tap detection
-- [ ] Add support for free-fall detection
-- [ ] Add support activity and inactivity detection
