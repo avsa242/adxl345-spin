@@ -7,7 +7,7 @@ This is a P8X32A/Propeller, P2X8C4M64P/Propeller 2 driver object for the Analog 
 
 ## Salient Features
 
-* I2C connection at up to 400kHz, SPI connection (4-wire) at up to 1MHz (P1), ~5MHz (P2)
+* I2C connection at up to 400kHz, SPI connection (3 or 4-wire) at up to 1MHz (P1), ~5MHz (P2)
 * Supports default or alternate I2C address
 * Manually or automatically set bias offsets (on-chip)
 * Read accelerometer data in ADC words, or micro-g's
@@ -33,10 +33,10 @@ P2/SPIN2:
 ## Compiler Compatibility
 
 * P1/SPIN1 OpenSpin (bytecode): OK, tested with 1.00.81
-* P1/SPIN1 FlexSpin (bytecode): OK, tested with 5.9.4-beta
-* P1/SPIN1 FlexSpin (native): OK, tested with 5.9.4-beta
-* ~~P2/SPIN2 FlexSpin (bytecode): FTBFS, tested with 5.9.4-beta~~
-* P2/SPIN2 FlexSpin (native): OK, tested with 5.9.4-beta
+* P1/SPIN1 FlexSpin (bytecode): OK, tested with 5.9.7-beta
+* P1/SPIN1 FlexSpin (native): OK, tested with 5.9.7-beta
+* ~~P2/SPIN2 FlexSpin (bytecode): FTBFS, tested with 5.9.7-beta~~
+* P2/SPIN2 FlexSpin (native): OK, tested with 5.9.7-beta
 * ~~BST~~ (incompatible - no preprocessor)
 * ~~Propeller Tool~~ (incompatible - no preprocessor)
 * ~~PNut~~ (incompatible - no preprocessor)
@@ -44,5 +44,4 @@ P2/SPIN2:
 ## Limitations
 
 * Very early in development - may malfunction, or outright fail to build
-* SPI mode only supports 4-wire SPI connected chips
 

@@ -37,7 +37,7 @@ OBJ
     cfg     : "core.con.boardcfg.flip"
     ser     : "com.serial.terminal.ansi"
     time    : "time"
-    accel   : "sensor.accel.3dof.adxl345.i2cspi"
+    accel   : "sensor.accel.3dof.adxl345"
 
 PUB Main{} | i
 
