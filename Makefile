@@ -9,7 +9,7 @@ P1BAUD=115200
 P2BAUD=2000000
 
 # P1, P2 compilers
-P1BUILD=openspin
+P1BUILD=flexspin --interp=rom
 #P1BUILD=flexspin
 P2BUILD=flexspin
 
