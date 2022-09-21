@@ -175,7 +175,7 @@ CON
         ENTRIES                 = 0
         ENTRIES_BITS            = %111111
 
-PUB Null
+PUB null{}
 ' This is not a top-level object
 
 DAT
