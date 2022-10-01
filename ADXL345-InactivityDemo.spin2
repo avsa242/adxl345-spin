@@ -6,7 +6,7 @@
         Inactivity interrupt functionality (P2 version)
     Copyright (c) 2022
     Started Aug 29, 2021
-    Updated Jul 9, 2022
+    Updated Oct 1, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -50,43 +50,41 @@ OBJ
     ser     : "com.serial.terminal.ansi"
     accel   : "sensor.accel.3dof.adxl345"
 
-PUB Main() | i, x, y, z
+PUB main() | i, x, y, z
 
     setup()
     accel.preset_active()                       ' default settings, but enable
                                                 ' sensor data acquisition and
                                                 ' set scale factor
-    accel.actinactlink(TRUE)
-    accel.actthresh(0_500000)
-    accel.inactthresh(0_125000)
-    accel.inacttime(3)
-    accel.actaxisenabled(%110)
-    accel.inactaxisenabled(%110)
-    accel.intmask(accel.INT_ACTIV | accel.INT_INACT)
-    accel.autosleep(TRUE)
-    accel.calibrateaccel()
+    accel.act_inact_link(TRUE)
+    accel.act_set_thresh(0_500000)
+    accel.inact_set_thresh(0_125000)
+    accel.inact_set_time(3)
+    accel.act_axis_ena(%110)
+    accel.inact_axis_ena(%110)
+    accel.int_set_mask(accel.INT_ACTIV | accel.INT_INACT)
+    accel.auto_sleep_ena(TRUE)
+    accel.calibrate_accel()
 
-    ser.printf(@"ActThresh(): %d\n", accel.actthresh())
-    ser.printf(@"InactThresh(): %d\n", accel.inactthresh())
-    ser.printf(@"InactTime(): %d\n", accel.inacttime())
-    ser.printf(@"AutoSleep(): %d\n", accel.autosleep())
-    ser.str(@"ActAxisEnabled() (%XYZ): %")
-    ser.bin(accel.actaxisenabled(), 3)
+    ser.printf(@"Activity threshold: %dug\n", accel.act_thresh())
+    ser.printf(@"Inactivity threshold: %dug\n", accel.inact_thresh())
+    ser.printf(@"Inactivity time: %dsecs\n", accel.inact_time())
+    ser.printf(@"Auto-sleep enabled: %d\n", accel.auto_sleep_ena())
+    ser.str(@"Activity axes enabled (%XYZ): %")
+    ser.bin(accel.act_axis_ena(), 3)
     ser.newline()
-    ser.str(@"InactAxisEnabled() (%XYZ): %")
-    ser.bin(accel.inactaxisenabled(), 3)
-    ser.newline()
+    ser.printf(@"Inactivity axes enabled (%XYZ): %b\n\r", accel.inact_axis_ena())
     ser.strln(@"Move the sensor to awaken it.")
     ser.strln(@"This can be done again, once it reports INACTIVE.")
 
     repeat
         i := accel.interrupt()
-        if i & accel.INT_INACT
+        if (i & accel.INT_INACT)
             ser.strln(@"INACTIVE")
-        if i & accel.INT_ACTIV
+        if (i & accel.INT_ACTIV)
             ser.strln(@"ACTIVE")
 
-PUB Setup()
+PUB setup()
 
     ser.start(SER_BAUD)
     waitms(30)
@@ -94,9 +92,9 @@ PUB Setup()
     ser.strln(@"Serial terminal started")
 
 #ifdef ADXL345_SPI
-    if (imu.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
+    if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
-    if (imu.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
+    if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
         ser.strln(@"ADXL345 driver started")
     else

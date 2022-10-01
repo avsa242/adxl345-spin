@@ -6,7 +6,7 @@
         Inactivity interrupt functionality
     Copyright (c) 2022
     Started Aug 29, 2021
-    Updated Jul 9, 2022
+    Updated Oct 1, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -52,43 +52,41 @@ OBJ
     time    : "time"
     accel   : "sensor.accel.3dof.adxl345"
 
-PUB Main{} | i
+PUB main{} | i
 
     setup{}
     accel.preset_active{}                       ' default settings, but enable
                                                 ' sensor data acquisition and
                                                 ' set scale factor
-    accel.actinactlink(TRUE)
-    accel.actthresh(0_500000)
-    accel.inactthresh(0_125000)
-    accel.inacttime(3)
-    accel.actaxisenabled(%110)
-    accel.inactaxisenabled(%110)
-    accel.intmask(accel#INT_ACTIV | accel#INT_INACT)
-    accel.autosleep(TRUE)
-    accel.calibrateaccel{}
+    accel.act_inact_link(TRUE)
+    accel.act_set_thresh(0_500000)
+    accel.inact_set_thresh(0_125000)
+    accel.inact_set_time(3)
+    accel.act_axis_ena(%110)
+    accel.inact_axis_ena(%110)
+    accel.int_set_mask(accel#INT_ACTIV | accel#INT_INACT)
+    accel.auto_sleep_ena(TRUE)
+    accel.calibrate_accel{}
 
-    ser.printf1(string("ActThresh(): %d\n\r"), accel.actthresh(-2))
-    ser.printf1(string("InactThresh(): %d\n\r"), accel.inactthresh(-2))
-    ser.printf1(string("InactTime(): %d\n\r"), accel.inacttime(-2))
-    ser.printf1(string("AutoSleep(): %d\n\r"), accel.autosleep(-2))
-    ser.str(string("ActAxisEnabled() (%XYZ): %"))
-    ser.bin(accel.actaxisenabled(-2), 3)
+    ser.printf1(string("Activity threshold: %dug\n\r"), accel.act_thresh{})
+    ser.printf1(string("Inactivity threshold: %dug\n\r"), accel.inact_thresh{})
+    ser.printf1(string("Inactivity time: %dsecs\n\r"), accel.inact_time{})
+    ser.printf1(string("Auto-sleep enabled: %d\n\r"), accel.auto_sleep_ena(-2))
+    ser.str(string("Activity axes enabled (%XYZ): %"))
+    ser.bin(accel.act_axis_ena(-2), 3)
     ser.newline{}
-    ser.str(string("InactAxisEnabled() (%XYZ): %"))
-    ser.bin(accel.inactaxisenabled(-2), 3)
-    ser.newline{}
+    ser.printf1(string("Inactivity axes enabled (%XYZ): %b\n\r"), accel.inact_axis_ena(-2))
     ser.strln(string("Move the sensor to awaken it."))
     ser.strln(string("This can be done again, once it reports INACTIVE."))
 
     repeat
         i := accel.interrupt{}
-        if i & accel#INT_INACT
+        if (i & accel#INT_INACT)
             ser.strln(string("INACTIVE"))
-        if i & accel#INT_ACTIV
+        if (i & accel#INT_ACTIV)
             ser.strln(string("ACTIVE"))
 
-PUB Setup{}
+PUB setup{}
 
     ser.start(SER_BAUD)
     time.msleep(30)
@@ -96,9 +94,9 @@ PUB Setup{}
     ser.strln(string("Serial terminal started"))
 
 #ifdef ADXL345_SPI
-    if (imu.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
+    if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
-    if (imu.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
+    if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
         ser.strln(string("ADXL345 driver started"))
     else

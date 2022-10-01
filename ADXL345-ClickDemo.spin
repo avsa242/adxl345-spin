@@ -6,7 +6,7 @@
         click-detection functionality
     Copyright (c) 2022
     Started May 30, 2021
-    Updated Sep 1, 2022
+    Updated Oct 1, 2022
     See end of file for terms of use.
     --------------------------------------------
 
@@ -55,27 +55,26 @@ VAR
     long _click_src, _dclicked, _sclicked
     long _dc_wind
 
-PUB Main{}
+PUB main{}
 
     setup{}
-    accel.preset_clickdet{}                     ' preset settings for
-'                                               ' click-detection
+    accel.preset_clickdet{}                     ' preset settings for click-detection
     _s_cnt := _d_cnt := 0
-    _dc_wind := accel.doubleclickwindow(-2) / 1000
+    _dc_wind := (accel.dbl_click_win{} / 1000)
     repeat
-        repeat until _click_src := accel.clickedint{}
+        repeat until _click_src := accel.clicked_int{}
 
         _dclicked := (_click_src & 1)
         _sclicked := ((_click_src >> 1) & 1)
-        if _dclicked
+        if (_dclicked)
             _click_src := 0
             _d_cnt++
             next
-        if _sclicked
+        if (_sclicked)
             _click_src := 0
             _s_cnt++
 
-PRI cog_ShowClickStatus{}
+PRI cog_show_click_status{}
 ' Secondary cog to display click status
     repeat
         ser.position(0, 3)
@@ -86,7 +85,7 @@ PRI cog_ShowClickStatus{}
         '   update too fast to be seen
         time.msleep(_dc_wind)
 
-PRI YesNo(val): resp
+PRI yesno(val): resp
 ' Return pointer to string "Yes" or "No" depending on value called with
     case ||(val)
         0:
@@ -94,25 +93,24 @@ PRI YesNo(val): resp
         1:
             return string("Yes")
 
-PUB Setup{}
+PUB setup{}
 
-    longfill(@_showclk_stack, 0, 65)
     ser.start(SER_BAUD)
     time.msleep(30)
     ser.clear{}
     ser.strln(string("Serial terminal started"))
 
 #ifdef ADXL345_SPI
-    if (imu.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
+    if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
-    if (imu.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
+    if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
         ser.strln(string("ADXL345 driver started"))
     else
         ser.strln(string("ADXL345 driver failed to start - halting"))
         repeat
 
-    cognew(cog_showclickstatus{}, @_showclk_stack)
+    cognew(cog_show_click_status{}, @_showclk_stack)
 
 DAT
 {
