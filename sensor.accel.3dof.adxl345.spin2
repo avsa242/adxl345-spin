@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer (P2 version)
     Copyright (c) 2022
     Started Mar 14, 2020
-    Updated Oct 1, 2022
+    Updated Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -86,7 +86,7 @@ OBJ
 
 { SPI? }
 #ifdef ADXL345_SPI
-    spi : "com.spi.bitbang"                     ' bit-banged SPI engine
+    spi : "com.spi.10mhz"                       ' bit-banged SPI engine
 #else
 { no, not SPI - default to I2C }
 #define ADXL345_I2C

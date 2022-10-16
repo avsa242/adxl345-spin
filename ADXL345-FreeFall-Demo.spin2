@@ -48,7 +48,7 @@ CON
 
 OBJ
 
-    cfg     : "core.con.boardcfg.p2eval"
+    cfg     : "boardcfg.p2eval"
     ser     : "com.serial.terminal.ansi"
     accel   : "sensor.accel.3dof.adxl345"
     int     : "string.integer"
@@ -92,7 +92,7 @@ PUB main() | intsource
                 ser.str(@"Sensor stable")
                 ser.clearline()
 
-        if (ser.rxcheck() == "c")               ' press the 'c' key in the demo
+        if (ser.rx_check() == "c")              ' press the 'c' key in the demo
             calibrate()                         ' to calibrate sensor offsets
                                                 ' (ensure sensor is level and
                                                 ' chip package top faces up)

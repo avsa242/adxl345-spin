@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2022
     Started Mar 14, 2020
-    Updated Oct 1, 2022
+    Updated Oct 16, 2022
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -90,9 +90,9 @@ OBJ
 #ifdef ADXL345_SPI
 { decide: Bytecode SPI engine, or PASM? Default is PASM if BC isn't specified }
 #ifdef ADXL345_SPI_BC
-    spi : "com.spi.nocog"                       ' BC SPI engine
+    spi : "com.spi.25khz.nocog"                       ' BC SPI engine
 #else
-    spi : "com.spi.4w"                          ' PASM SPI engine
+    spi : "com.spi.1mhz"                          ' PASM SPI engine
 #endif
 #else
 { no, not SPI - default to I2C }
