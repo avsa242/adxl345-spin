@@ -614,6 +614,7 @@ PUB click_set_time(ctime)
 
 PUB dev_id(): id
 ' Read device identification
+'   Returns: $E5 (345 octal)
     id := 0
     readreg(core.DEVID, 1, @id)
 
