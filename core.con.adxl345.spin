@@ -3,9 +3,9 @@
     Filename: core.con.adxl345.spin
     Author: Jesse Burt
     Description: ADXL345-specific low-level constants
-    Copyright (c) 2021
+    Copyright (c) 2023
     Started Mar 14, 2020
-    Updated Nov 13, 2021
+    Updated Jun 26, 2023
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -18,6 +18,9 @@ CON
 
 ' I2C Configuration
     SLAVE_ADDR                  = $53 << 1
+    SLAVE_ADDR_DEF              = SLAVE_ADDR
+    SLAVE_ADDR_ALT              = $1d << 1
+
     I2C_MAX_FREQ                = 400_000
 
     T_POR                       = 1_400         ' usec

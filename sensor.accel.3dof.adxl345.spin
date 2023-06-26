@@ -83,6 +83,7 @@ CON
 VAR
 
     long _CS
+    byte _addr_bits
 
 OBJ
 
@@ -122,6 +123,9 @@ PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
             repeat 2
                 i2c.stop{}
             spimode(4)
+            { if ADDR_BITS is non-zero, try to talk to the chip using the alternate address,
+                otherwise use the standard one }
+            _addr_bits := (ADDR_BITS) ? core#SLAVE_ADDR_ALT : core#SLAVE_ADDR_DEF
             if ( dev_id{} == core#DEVID_RESP )
                 return status
     ' if this point is reached, something above failed
@@ -809,12 +813,12 @@ PRI readreg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
             return
 
 #ifdef ADXL345_I2C
-    cmd_pkt.byte[0] := SLAVE_WR
+    cmd_pkt.byte[0] := _addr_bits
     cmd_pkt.byte[1] := reg_nr
     i2c.start{}
     i2c.wrblock_lsbf(@cmd_pkt, 2)
     i2c.start{}
-    i2c.wr_byte(SLAVE_RD)
+    i2c.wr_byte(_addr_bits | 1)
     i2c.rdblock_lsbf(ptr_buff, nr_bytes, i2c#NAK)
     i2c.stop{}
 #elseifdef ADXL345_SPI
@@ -843,7 +847,7 @@ PRI writereg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
     case reg_nr
         $1D..$2A, $2C..$2F, $31, $38:
 #ifdef ADXL345_I2C
-            cmd_pkt.byte[0] := SLAVE_WR
+            cmd_pkt.byte[0] := _addr_bits
             cmd_pkt.byte[1] := reg_nr
             i2c.start{}
             i2c.wrblock_lsbf(@cmd_pkt, 2)
