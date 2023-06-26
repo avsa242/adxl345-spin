@@ -4,9 +4,9 @@
     Author: Jesse Burt
     Description: ADXL345 driver demo
         * 3DoF data output
-    Copyright (c) 2022
+    Copyright (c) 2023
     Started Mar 14, 2020
-    Updated Oct 16, 2022
+    Updated Jun 26, 2023
     See end of file for terms of use.
     --------------------------------------------
 
@@ -42,10 +42,10 @@ CON
 
 OBJ
 
-    cfg: "boardcfg.flip"
+    cfg:    "boardcfg.flip"
     sensor: "sensor.accel.3dof.adxl345"
-    ser: "com.serial.terminal.ansi"
-    time: "time"
+    ser:    "com.serial.terminal.ansi"
+    time:   "time"
 
 PUB setup{}
 
@@ -66,14 +66,16 @@ PUB setup{}
 
     sensor.preset_active{}
     repeat
-        ser.position(0, 3)
+        ser.pos_xy(0, 3)
+        if ( ser.rx_check{} == "c" )
+            cal_accel{}
         show_accel_data{}
 
 #include "acceldemo.common.spinh"                 ' code common to all accelerometer demos
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2023 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

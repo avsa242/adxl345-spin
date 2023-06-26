@@ -5,7 +5,7 @@
     Description: Driver for the Analog Devices ADXL345 3DoF Accelerometer
     Copyright (c) 2022
     Started Mar 14, 2020
-    Updated Nov 5, 2022
+    Updated Jun 26, 2023
     See end of file for terms of use.
     --------------------------------------------
 }
@@ -114,15 +114,15 @@ PUB null{}
 #ifdef ADXL345_I2C
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O pin settings (I2C)
-    if lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and {
-}   I2C_HZ =< core#I2C_MAX_FREQ
-        if (status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ))
+    if ( lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and ...
+         I2C_HZ =< core#I2C_MAX_FREQ )
+        if ( status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ) )
             time.usleep(core#T_POR)
             i2c.write($FF)
             repeat 2
                 i2c.stop{}
             spimode(4)
-            if (dev_id{} == core#DEVID_RESP)
+            if ( dev_id{} == core#DEVID_RESP )
                 return status
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
@@ -131,19 +131,19 @@ PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 #elseifdef ADXL345_SPI
 PUB startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
 ' Start using custom I/O pin settings (SPI-4 wire)
-    if lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and {
-}   lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31)
-        if (status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core#SPI_MODE))
+    if ( lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and ...
+         lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31) )
+        if ( status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core#SPI_MODE) )
             time.msleep(1)
             _CS := CS_PIN
 
             outa[_CS] := 1                      ' ensure CS starts high
             dira[_CS] := 1
-            if (SDA_PIN == SDO_PIN)
+            if ( SDA_PIN == SDO_PIN )
                 spimode(3)
             else
                 spimode(4)
-            if (dev_id{} == core#DEVID_RESP)
+            if ( dev_id{} == core#DEVID_RESP )
                 return status
     ' if this point is reached, something above failed
     ' Double check I/O pin assignments, connections, power
@@ -201,7 +201,7 @@ PUB preset_freefall{}
 PUB accel_adc_res(bits): curr_res
 ' Set accelerometer ADC resolution, in bits
 '   Valid values:
-'       10: 10bit ADC resolution (AccelScale determines maximum g range and scale factor)
+'       10: 10bit ADC resolution (accel_scale() determines maximum g range and scale factor)
 '       FULL: Output resolution increases with the g range, maintaining a 4mg/LSB scale factor
 '   Any other value polls the chip and returns the current setting
     curr_res := 0
@@ -230,10 +230,10 @@ PUB accel_bias(x, y, z) | tmp, scl_fact
 PUB accel_set_bias(x, y, z) | scl_fact
 ' Write accelerometer calibration offset values
 '   Valid values: -128..127 (clamped to range)
-    scl_fact := (15_600 / _ares)
-    x := -128 #> ((x * 1_000) / scl_fact) <# 127
-    y := -128 #> ((y * 1_000) / scl_fact) <# 127
-    z := -128 #> ((z * 1_000) / scl_fact) <# 127
+    scl_fact := (15_600 / _ares)                ' adjust the scaling depending on accel_adc_res()
+    x := -128 #> (-x / scl_fact) <# 127
+    y := -128 #> (-y / scl_fact) <# 127
+    z := -128 #> (-z / scl_fact) <# 127
     writereg(core#OFSX, 1, @x)
     writereg(core#OFSY, 1, @y)
     writereg(core#OFSZ, 1, @z)
@@ -263,14 +263,14 @@ PUB accel_data_rate(rate): curr_rate
     curr_rate := 0
     readreg(core#BW_RATE, 1, @curr_rate)
     case rate
-        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400,{
-}       800, 1600, 3200:
-            rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25,{
-}           12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, ...
+        800, 1600, 3200:
+            rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, ...
+                                    12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
         other:
             curr_rate &= core#RATE_BITS
-            return lookupz(curr_rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13,{
-}           6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+            return lookupz(curr_rate:   0_10, 0_20, 0_39, 0_78, 1_56, 3_13, ...
+                                        6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
 
     rate := ((curr_rate & core#RATE_MASK) | rate)
     writereg(core#BW_RATE, 1, @rate)
@@ -860,7 +860,7 @@ PRI writereg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2023 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
