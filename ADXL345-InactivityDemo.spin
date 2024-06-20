@@ -1,29 +1,36 @@
 {
-    --------------------------------------------
-    Filename: ADXL345-InactivityDemo.spin
-    Author: Jesse Burt
-    Description: Demo of the ADXL345 driver
-        Inactivity interrupt functionality
-    Copyright (c) 2022
-    Started Aug 29, 2021
-    Updated Nov 5, 2022
-    See end of file for terms of use.
-    --------------------------------------------
-
-    Build-time symbols supported by driver:
-        -DADXL345_SPI
-        -DADXL345_SPI_BC
-        -DADXL345_I2C (default if none specified)
-        -DADXL345_I2C_BC
+----------------------------------------------------------------------------------------------------
+    Filename:       ADXL345-InactivityDemo.spin
+    Description:    Demo of the ADXL345 driver
+        * Inactivity interrupt functionality
+    Author:         Jesse Burt
+    Started:        Aug 29, 2021
+    Updated:        Jun 20, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
+
+' Uncomment the two lines below to use the driver in SPI mode
+'#define ADXL345_SPI
+'#pragma exportdef(ADXL345_SPI)
+
+' Uncomment the four lines below to use the driver with a bytecode-based SPI engine
+'#define ADXL345_SPI
+'#define ADXL345_SPI_BC
+'#pragma exportdef(ADXL345_SPI)
+'#pragma exportdef(ADXL345_SPI_BC)
+
+' Uncomment these two use the driver with a bytecode-based I2C engine
+'#define ADXL345_I2C_BC
+
 
 CON
 
-    _clkmode    = cfg#_clkmode
-    _xinfreq    = cfg#_xinfreq
+    _clkmode    = cfg._clkmode
+    _xinfreq    = cfg._xinfreq
 
 ' -- User-modifiable constants
-    LED         = cfg#LED1
+    LED         = cfg.LED1
     SER_BAUD    = 115_200
 
     { I2C configuration }
@@ -45,17 +52,19 @@ CON
     DAT_Y_COL   = DAT_X_COL + 15
     DAT_Z_COL   = DAT_Y_COL + 15
 
+
 OBJ
 
-    cfg     : "boardcfg.flip"
-    ser     : "com.serial.terminal.ansi"
-    time    : "time"
-    accel   : "sensor.accel.3dof.adxl345"
+    cfg:    "boardcfg.flip"
+    ser:    "com.serial.terminal.ansi"
+    time:   "time"
+    accel:  "sensor.accel.3dof.adxl345"
 
-PUB main{} | i
 
-    setup{}
-    accel.preset_active{}                       ' default settings, but enable
+PUB main() | i
+
+    setup()
+    accel.preset_active()                       ' default settings, but enable
                                                 ' sensor data acquisition and
                                                 ' set scale factor
     accel.act_inact_link(TRUE)
@@ -64,48 +73,50 @@ PUB main{} | i
     accel.inact_set_time(3)
     accel.act_axis_ena(%110)
     accel.inact_axis_ena(%110)
-    accel.accel_int_set_mask(accel#INT_ACTIV | accel#INT_INACT)
+    accel.accel_int_set_mask(accel.INT_ACTIV | accel.INT_INACT)
     accel.auto_sleep_ena(TRUE)
-    accel.calibrate_accel{}
+    accel.calibrate_accel()
 
-    ser.printf1(string("Activity threshold: %dug\n\r"), accel.act_thresh{})
-    ser.printf1(string("Inactivity threshold: %dug\n\r"), accel.inact_thresh{})
-    ser.printf1(string("Inactivity time: %dsecs\n\r"), accel.inact_time{})
-    ser.printf1(string("Auto-sleep enabled: %d\n\r"), accel.auto_sleep_ena(-2))
-    ser.puts(string("Activity axes enabled (%XYZ): %"))
+    ser.printf1(@"Activity threshold: %dug\n\r", accel.act_thresh())
+    ser.printf1(@"Inactivity threshold: %dug\n\r", accel.inact_thresh())
+    ser.printf1(@"Inactivity time: %dsecs\n\r", accel.inact_time())
+    ser.printf1(@"Auto-sleep enabled: %d\n\r", accel.auto_sleep_ena(-2))
+    ser.puts(@"Activity axes enabled (XYZ): %")
     ser.bin(accel.act_axis_ena(-2), 3)
-    ser.newline{}
-    ser.printf1(string("Inactivity axes enabled (%XYZ): %b\n\r"), accel.inact_axis_ena(-2))
-    ser.strln(string("Move the sensor to awaken it."))
-    ser.strln(string("This can be done again, once it reports INACTIVE."))
+    ser.newline()
+    ser.printf1(@"Inactivity axes enabled (XYZ): %b\n\r", accel.inact_axis_ena(-2))
+    ser.strln(@"Move the sensor to awaken it.")
+    ser.strln(@"This can be done again, once it reports INACTIVE.")
 
     repeat
-        i := accel.accel_int{}
-        if (i & accel#INT_INACT)
-            ser.strln(string("INACTIVE"))
-        if (i & accel#INT_ACTIV)
-            ser.strln(string("ACTIVE"))
+        i := accel.accel_int()
+        if (i & accel.INT_INACT)
+            ser.strln(@"INACTIVE")
+        if (i & accel.INT_ACTIV)
+            ser.strln(@"ACTIVE")
 
-PUB setup{}
+
+PUB setup()
 
     ser.start(SER_BAUD)
     time.msleep(30)
-    ser.clear{}
-    ser.strln(string("Serial terminal started"))
+    ser.clear()
+    ser.strln(@"Serial terminal started")
 
 #ifdef ADXL345_SPI
     if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
     if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
-        ser.strln(string("ADXL345 driver started"))
+        ser.strln(@"ADXL345 driver started")
     else
-        ser.strln(string("ADXL345 driver failed to start - halting"))
+        ser.strln(@"ADXL345 driver failed to start - halting")
         repeat
+
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

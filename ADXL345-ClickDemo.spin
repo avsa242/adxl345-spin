@@ -1,29 +1,37 @@
 {
-    --------------------------------------------
-    Filename: ADXL345-ClickDemo.spin
-    Author: Jesse Burt
-    Description: Demo of the ADXL345 driver
-        click-detection functionality
-    Copyright (c) 2022
-    Started May 30, 2021
-    Updated Oct 1, 2022
-    See end of file for terms of use.
-    --------------------------------------------
-
-    Build-time symbols supported by driver:
-        -DADXL345_SPI
-        -DADXL345_SPI_BC
-        -DADXL345_I2C (default if none specified)
-        -DADXL345_I2C_BC
+----------------------------------------------------------------------------------------------------
+    Filename:       ADXL345-ClickDemo.spin
+    Description:    Demo of the ADXL345 driver
+        * click-detection functionality
+    Author:         Jesse Burt
+    Started:        May 30, 2021
+    Updated:        Jun 20, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
+
+' Uncomment the two lines below to use the driver in SPI mode
+'#define ADXL345_SPI
+'#pragma exportdef(ADXL345_SPI)
+
+' Uncomment the four lines below to use the driver with a bytecode-based SPI engine
+'#define ADXL345_SPI
+'#define ADXL345_SPI_BC
+'#pragma exportdef(ADXL345_SPI)
+'#pragma exportdef(ADXL345_SPI_BC)
+
+' Uncomment these two use the driver with a bytecode-based I2C engine
+'#define ADXL345_I2C_BC
+'#pragma exportdef(ADXL345_I2C_BC)
+
 
 CON
 
-    _clkmode    = cfg#_clkmode
-    _xinfreq    = cfg#_xinfreq
+    _clkmode    = cfg._clkmode
+    _xinfreq    = cfg._xinfreq
 
 ' -- User-modifiable constants
-    LED         = cfg#LED1
+    LED         = cfg.LED1
     SER_BAUD    = 115_200
 
     { I2C configuration }
@@ -43,10 +51,11 @@ CON
 
 OBJ
 
-    cfg     : "boardcfg.flip"
-    ser     : "com.serial.terminal.ansi"
-    time    : "time"
-    accel   : "sensor.accel.3dof.adxl345"
+    cfg:    "boardcfg.flip"
+    ser:    "com.serial.terminal.ansi"
+    time:   "time"
+    accel:  "sensor.accel.3dof.adxl345"
+
 
 VAR
 
@@ -55,14 +64,15 @@ VAR
     long _click_src, _dclicked, _sclicked
     long _dc_wind
 
-PUB main{}
 
-    setup{}
-    accel.preset_clickdet{}                     ' preset settings for click-detection
+PUB main()
+
+    setup()
+    accel.preset_clickdet()                     ' preset settings for click-detection
     _s_cnt := _d_cnt := 0
-    _dc_wind := (accel.dbl_click_win{} / 1000)
+    _dc_wind := (accel.dbl_click_win() / 1000)
     repeat
-        repeat until _click_src := accel.clicked_int{}
+        repeat until _click_src := accel.clicked_int()
 
         _dclicked := (_click_src & 1)
         _sclicked := ((_click_src >> 1) & 1)
@@ -74,47 +84,51 @@ PUB main{}
             _click_src := 0
             _s_cnt++
 
-PRI cog_show_click_status{}
+
+PRI cog_show_click_status()
 ' Secondary cog to display click status
     repeat
         ser.position(0, 3)
-        ser.printf2(string("Double-clicked:  %s (%d)\n\r"), yesno(_dclicked), _d_cnt)
-        ser.printf2(string("Single-clicked:  %s (%d)\n\r"), yesno(_sclicked), _s_cnt)
+        ser.printf2(@"Double-clicked:  %s (%d)\n\r", yesno(_dclicked), _d_cnt)
+        ser.printf2(@"Single-clicked:  %s (%d)\n\r", yesno(_sclicked), _s_cnt)
         _dclicked := _sclicked := false
         ' wait for double-click window time to elapse, so the display doesn't
         '   update too fast to be seen
         time.msleep(_dc_wind)
 
+
 PRI yesno(val): resp
 ' Return pointer to string "Yes" or "No" depending on value called with
     case ||(val)
         0:
-            return string("No ")
+            return @"No "
         1:
-            return string("Yes")
+            return @"Yes"
 
-PUB setup{}
+
+PUB setup()
 
     ser.start(SER_BAUD)
     time.msleep(30)
-    ser.clear{}
-    ser.strln(string("Serial terminal started"))
+    ser.clear()
+    ser.strln(@"Serial terminal started")
 
 #ifdef ADXL345_SPI
     if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
     if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
-        ser.strln(string("ADXL345 driver started"))
+        ser.strln(@"ADXL345 driver started")
     else
-        ser.strln(string("ADXL345 driver failed to start - halting"))
+        ser.strln(@"ADXL345 driver failed to start - halting")
         repeat
 
-    cognew(cog_show_click_status{}, @_showclk_stack)
+    cognew(cog_show_click_status(), @_showclk_stack)
+
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,

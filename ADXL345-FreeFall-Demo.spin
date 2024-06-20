@@ -1,29 +1,37 @@
 {
-    --------------------------------------------
-    Filename: ADXL345-FreeFall-Demo.spin
-    Author: Jesse Burt
-    Description: Demo of the ADXL345 driver
-        Free-fall detection functionality
-    Copyright (c) 2022
-    Started Nov 7, 2021
-    Updated Nov 5, 2022
-    See end of file for terms of use.
-    --------------------------------------------
-
-    Build-time symbols supported by driver:
-        -DADXL345_SPI
-        -DADXL345_SPI_BC
-        -DADXL345_I2C (default if none specified)
-        -DADXL345_I2C_BC
+----------------------------------------------------------------------------------------------------
+    Filename:       ADXL345-FreeFall-Demo.spin
+    Description:    Demo of the ADXL345 driver
+        * Free-fall detection functionality
+    Author:         Jesse Burt
+    Started:        Nov 7, 2021
+    Updated:        Jun 20, 2024
+    Copyright (c) 2024 - See end of file for terms of use.
+----------------------------------------------------------------------------------------------------
 }
+
+' Uncomment the two lines below to use the driver in SPI mode
+'#define ADXL345_SPI
+'#pragma exportdef(ADXL345_SPI)
+
+' Uncomment the four lines below to use the driver with a bytecode-based SPI engine
+'#define ADXL345_SPI
+'#define ADXL345_SPI_BC
+'#pragma exportdef(ADXL345_SPI)
+'#pragma exportdef(ADXL345_SPI_BC)
+
+' Uncomment these two use the driver with a bytecode-based I2C engine
+'#define ADXL345_I2C_BC
+'#pragma exportdef(ADXL345_I2C_BC)
+
 
 CON
 
-    _clkmode    = cfg#_clkmode
-    _xinfreq    = cfg#_xinfreq
+    _clkmode    = cfg._clkmode
+    _xinfreq    = cfg._xinfreq
 
 ' -- User-modifiable constants
-    LED         = cfg#LED1
+    LED         = cfg.LED1
     SER_BAUD    = 115_200
 
     { I2C configuration }
@@ -47,27 +55,30 @@ CON
     DAT_Y_COL   = DAT_X_COL + 15
     DAT_Z_COL   = DAT_Y_COL + 15
 
+
 OBJ
 
-    cfg     : "boardcfg.flip"
-    ser     : "com.serial.terminal.ansi"
-    time    : "time"
-    accel   : "sensor.accel.3dof.adxl345"
+    cfg:    "boardcfg.flip"
+    ser:    "com.serial.terminal.ansi"
+    time:   "time"
+    accel:  "sensor.accel.3dof.adxl345"
+
 
 VAR
 
     long _isr_stack[50]                         ' stack for ISR core
     long _intflag                               ' interrupt flag
 
-PUB main{} | intsource
 
-    setup{}
-    accel.preset_freefall{}                     ' default settings, but enable
+PUB main() | intsource
+
+    setup()
+    accel.preset_freefall()                     ' default settings, but enable
                                                 ' sensors, set scale factors,
                                                 ' and free-fall parameters
 
     ser.pos_xy(0, 3)
-    ser.puts(string("Waiting for free-fall condition..."))
+    ser.puts(@"Waiting for free-fall condition...")
 
     ' When the sensor detects free-fall, a message is displayed and
     '   is cleared after the user presses a key
@@ -79,34 +90,36 @@ PUB main{} | intsource
 
     repeat
         if (_intflag)                           ' interrupt triggered?
-            intsource := accel.accel_int{}      ' read & clear interrupt flags
-            if (intsource & accel#INT_FFALL)    ' free-fall event?
+            intsource := accel.accel_int()      ' read & clear interrupt flags
+            if (intsource & accel.INT_FFALL)    ' free-fall event?
                 ser.pos_xy(0, 3)
-                ser.puts(string("Sensor in free-fall!"))
-                ser.clear_line{}
-                ser.newline{}
-                ser.puts(string("Press any key to reset"))
-                ser.getchar{}
+                ser.puts(@"Sensor in free-fall!")
+                ser.clear_line()
+                ser.newline()
+                ser.puts(@"Press any key to reset")
+                ser.getchar()
                 ser.pos_x(0)
-                ser.clear_line{}
+                ser.clear_line()
                 ser.pos_xy(0, 3)
-                ser.puts(string("Sensor stable"))
-                ser.clear_line{}
+                ser.puts(@"Sensor stable")
+                ser.clear_line()
 
-        if (ser.rx_check{} == "c")               ' press the 'c' key in the demo
-            calibrate{}                         ' to calibrate sensor offsets
+        if (ser.getchar_noblock() == "c")       ' press the 'c' key in the demo
+            calibrate()                         ' to calibrate sensor offsets
                                                 ' (ensure sensor is level and
                                                 ' chip package top faces up)
 
-PRI calibrate{}
+
+PRI calibrate()
 ' Calibrate sensor/set bias offsets
     ser.pos_xy(0, 7)
-    ser.puts(string("Calibrating..."))
-    accel.calibrate_accel{}
+    ser.puts(@"Calibrating...")
+    accel.calibrate_accel()
     ser.pos_x(0)
-    ser.clear_line{}
+    ser.clear_line()
 
-PRI cog_isr{}
+
+PRI cog_isr()
 ' Interrupt service routine
     dira[INT1] := 0                             ' INT1 as input
     dira[LED] := 1                              ' LED as output
@@ -119,28 +132,30 @@ PRI cog_isr{}
         outa[LED] := 0                          ' turn off LED
         _intflag := 0                           '   clear flag
 
-PUB setup{}
+
+PUB setup()
 
     ser.start(SER_BAUD)
     time.msleep(30)
-    ser.clear{}
-    ser.strln(string("Serial terminal started"))
+    ser.clear()
+    ser.strln(@"Serial terminal started")
 
 #ifdef ADXL345_SPI
     if (accel.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
 #else
     if (accel.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
 #endif
-        ser.strln(string("ADXL345 driver started"))
+        ser.strln(@"ADXL345 driver started")
     else
-        ser.strln(string("ADXL345 driver failed to start - halting"))
+        ser.strln(@"ADXL345 driver failed to start - halting")
         repeat
 
-    cognew(cog_isr{}, @_isr_stack)              ' start ISR in another core
+    cognew(cog_isr(), @_isr_stack)              ' start ISR in another core
+
 
 DAT
 {
-Copyright 2022 Jesse Burt
+Copyright 2024 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
