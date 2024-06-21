@@ -13,14 +13,20 @@
 
 CON
 
-' Constants used for I2C mode only
-    SLAVE_WR        = core.SLAVE_ADDR
-    SLAVE_RD        = core.SLAVE_ADDR|1
+    { default I/O configuration - these can be overridden by the parent object }
+    ' I2C
+    SCL             = 28
+    SDA             = 29
+    I2C_FREQ        = 1_000_000
+    I2C_ADDR        = 0
 
-    DEF_SCL         = 28
-    DEF_SDA         = 29
-    DEF_HZ          = 100_000
-    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
+    ' SPI
+    CS              = 0
+    SCK             = 1
+    MOSI            = 2
+    MISO            = 3
+    SPI_FREQ        = 1_000_000
+
 
 ' Indicate to user apps how many Degrees of Freedom each sub-sensor has
 '   (also imply whether or not it has a particular sensor)
@@ -80,6 +86,17 @@ CON
     LOW             = 0
     HIGH            = 1
 
+
+' Constants used for I2C mode only
+    SLAVE_WR        = core.SLAVE_ADDR
+    SLAVE_RD        = core.SLAVE_ADDR|1
+
+    DEF_SCL         = 28
+    DEF_SDA         = 29
+    DEF_HZ          = 100_000
+    I2C_MAX_FREQ    = core.I2C_MAX_FREQ
+
+
 VAR
 
     long _CS
@@ -108,15 +125,21 @@ OBJ
     core: "core.con.adxl345"                    ' HW-specific constants
     time: "time"                                ' timekeeping methods
 
+
 PUB null()
 ' This is not a top-level object
 
 
 #ifdef ADXL345_I2C
+
+PUB start(): status
+' Start using default I/O settings
+    return startx(SCL, SDA, I2C_FREQ, 0)
+
+
 PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 ' Start using custom I/O pin settings (I2C)
-    if ( lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) and ...
-         I2C_HZ =< core.I2C_MAX_FREQ )
+    if ( lookdown(SCL_PIN: 0..31) and lookdown(SDA_PIN: 0..31) )
         if ( status := i2c.init(SCL_PIN, SDA_PIN, I2C_HZ) )
             time.usleep(core.T_POR)
             i2c.write($FF)
@@ -135,8 +158,13 @@ PUB startx(SCL_PIN, SDA_PIN, I2C_HZ, ADDR_BITS): status
 
 #elseifdef ADXL345_SPI
 
+PUB start(): status
+' Start using default I/O settings
+    return startx(CS, SCK, MOSI, MISO)
+
+
 PUB startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
-' Start using custom I/O pin settings (SPI-4 wire)
+' Start using custom I/O pin settings
     if ( lookdown(CS_PIN: 0..31) and lookdown(SCL_PIN: 0..31) and ...
          lookdown(SDA_PIN: 0..31) and lookdown(SDO_PIN: 0..31) )
         if ( status := spi.init(SCL_PIN, SDA_PIN, SDO_PIN, core.SPI_MODE) )
@@ -145,7 +173,7 @@ PUB startx(CS_PIN, SCL_PIN, SDA_PIN, SDO_PIN): status
 
             outa[_CS] := 1                      ' ensure CS starts high
             dira[_CS] := 1
-            if ( SDA_PIN == SDO_PIN )
+            if ( SDA_PIN == SDO_PIN )           ' select 3-wire SPI mode if MOSI = MISO
                 spimode(3)
             else
                 spimode(4)
@@ -280,14 +308,13 @@ PUB accel_data_rate(rate=-2): curr_rate
     curr_rate := 0
     readreg(core.BW_RATE, 1, @curr_rate)
     case rate
-        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, ...
-        800, 1600, 3200:
-            rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, ...
-                                    12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+        0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200:
+            rate := lookdownz(rate: 0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, ...
+                                    100, 200, 400, 800, 1600, 3200)
         other:
             curr_rate &= core.RATE_BITS
-            return lookupz(curr_rate:   0_10, 0_20, 0_39, 0_78, 1_56, 3_13, ...
-                                        6_25, 12_5, 25, 50, 100, 200, 400, 800, 1600, 3200)
+            return lookupz(curr_rate:   0_10, 0_20, 0_39, 0_78, 1_56, 3_13, 6_25, 12_5, 25, 50, ...
+                                        100, 200, 400, 800, 1600, 3200)
 
     rate := ((curr_rate & core.RATE_MASK) | rate)
     writereg(core.BW_RATE, 1, @rate)
@@ -867,9 +894,9 @@ PRI readreg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 ' Read nr_bytes from slave device into ptr_buff
     case reg_nr
         $00, $1D..$31, $38, $39:
-        $32..$37:                               ' accel data regs; set the
+        $32..$37:                               ' accel data regs;
 #ifdef ADXL345_SPI
-            reg_nr |= core.MB                   '   multi-byte transaction bit
+            reg_nr |= core.MB                   '   set the multi-byte transaction bit (SPI only)
 #endif
         other:
             return

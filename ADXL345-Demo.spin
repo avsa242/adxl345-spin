@@ -29,45 +29,26 @@ CON
     _clkmode    = cfg._clkmode
     _xinfreq    = cfg._xinfreq
 
-' -- User-modifiable constants
-    SER_BAUD    = 115_200
-
-    { I2C configuration }
-    SCL_PIN     = 28
-    SDA_PIN     = 29
-    I2C_FREQ    = 400_000                       ' max is 400_000
-    ADDR_BITS   = 0                             ' 0, 1
-
-    { SPI configuration }
-    CS_PIN      = 0
-    SCK_PIN     = 1                             ' SCL
-    MOSI_PIN    = 2                             ' SDA
-    MISO_PIN    = 3                             ' SDO
-'   NOTE: If ADXL345_SPI is #defined, and MOSI_PIN and MISO_PIN are the same,
-'   the driver will attempt to start in 3-wire SPI mode.
-' --
-
 
 OBJ
 
     cfg:    "boardcfg.flip"
-    sensor: "sensor.accel.3dof.adxl345"
-    ser:    "com.serial.terminal.ansi"
     time:   "time"
+    ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
+    sensor: "sensor.accel.3dof.adxl345" |   {I2C} SCL=28, SDA=29, I2C_FREQ=400_000, I2C_ADDR=0, ...
+                                            {SPI} CS=0, SCK=1, MOSI=2, MISO=3
+'   NOTE: If ADXL345_SPI is #defined, and MOSI_PIN and MISO_PIN are the same,
+'   the driver will attempt to start in 3-wire SPI mode.
 
 
 PUB setup()
 
-    ser.start(SER_BAUD)
-    time.msleep(20)
+    ser.start()
+    time.msleep(30)
     ser.clear()
     ser.strln(@"Serial terminal started")
 
-#ifdef ADXL345_SPI
-    if (sensor.startx(CS_PIN, SCK_PIN, MOSI_PIN, MISO_PIN))
-#else
-    if (sensor.startx(SCL_PIN, SDA_PIN, I2C_FREQ, ADDR_BITS))
-#endif
+    if ( sensor.start() )
         ser.strln(@"ADXL345 driver started")
     else
         ser.strln(@"ADXL345 driver failed to start - halting")
@@ -76,7 +57,7 @@ PUB setup()
     sensor.preset_active()
     repeat
         ser.pos_xy(0, 3)
-        if ( ser.rx_check() == "c" )
+        if ( ser.getchar_noblock() == "c" )
             cal_accel()
         show_accel_data()
 
