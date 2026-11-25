@@ -5,8 +5,8 @@
         * Inactivity interrupt functionality
     Author:         Jesse Burt
     Started:        Aug 29, 2021
-    Updated:        Jun 21, 2024
-    Copyright (c) 2024 - See end of file for terms of use.
+    Updated:        Nov 25, 2026
+    Copyright (c) 2026 - See end of file for terms of use.
 ----------------------------------------------------------------------------------------------------
 }
 
@@ -26,13 +26,12 @@
 
 CON
 
-    _clkmode    = cfg._clkmode
-    _xinfreq    = cfg._xinfreq
+    _clkmode    = xtal1+pll16x
+    _xinfreq    = 5_000_000
 
 
 OBJ
 
-    cfg:    "boardcfg.flip"
     time:   "time"
     ser:    "com.serial.terminal.ansi" | SER_BAUD=115_200
     accel:  "sensor.accel.3dof.adxl345" |   {I2C} SCL=28, SDA=29, I2C_FREQ=400_000, I2C_ADDR=0, ...
@@ -57,14 +56,12 @@ PUB main() | i
     accel.auto_sleep_ena(TRUE)
     accel.calibrate_accel()
 
-    ser.printf1(@"Activity threshold: %dug\n\r", accel.act_thresh())
-    ser.printf1(@"Inactivity threshold: %dug\n\r", accel.inact_thresh())
-    ser.printf1(@"Inactivity time: %dsecs\n\r", accel.inact_time())
-    ser.printf1(@"Auto-sleep enabled: %d\n\r", accel.auto_sleep_ena(-2))
-    ser.puts(@"Activity axes enabled (XYZ): %")
-    ser.bin(accel.act_axis_ena(-2), 3)
-    ser.newline()
-    ser.printf1(@"Inactivity axes enabled (XYZ): %b\n\r", accel.inact_axis_ena(-2))
+    ser.printf(@"Activity threshold: %dug\n\r", accel.act_thresh())
+    ser.printf(@"Inactivity threshold: %dug\n\r", accel.inact_thresh())
+    ser.printf(@"Inactivity time: %dsecs\n\r", accel.inact_time())
+    ser.printf(@"Auto-sleep enabled: %d\n\r", accel.auto_sleep_ena())
+    ser.printf(@"Activity axes enabled (XYZ): %03.3b\n\r", accel.act_axis_ena())
+    ser.printf(@"Inactivity axes enabled (XYZ): %b\n\r", accel.inact_axis_ena())
     ser.strln(@"Move the sensor to awaken it.")
     ser.strln(@"This can be done again, once it reports INACTIVE.")
 
@@ -92,7 +89,7 @@ PUB setup()
 
 DAT
 {
-Copyright 2024 Jesse Burt
+Copyright 2026 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
