@@ -52,10 +52,11 @@ PUB main()
         if ( _dclicked )
             _click_src := 0
             _d_cnt++
-            next
         if ( _sclicked )
             _click_src := 0
             _s_cnt++
+
+        waitms(_dc_wind)                        ' wait so counts don't accumulate wildly
 
 
 PRI cog_show_click_status()
