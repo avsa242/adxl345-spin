@@ -46,6 +46,7 @@ PUB main() | i
     accel.preset_active()                       ' default settings, but enable
                                                 ' sensor data acquisition and
                                                 ' set scale factor
+    accel.calibrate_accel()
     accel.act_inact_link(TRUE)
     accel.act_set_thresh(0_500000)
     accel.inact_set_thresh(0_125000)
@@ -54,7 +55,6 @@ PUB main() | i
     accel.inact_axis_ena(%110)
     accel.accel_int_set_mask(accel.INT_ACTIV | accel.INT_INACT)
     accel.auto_sleep_ena(TRUE)
-    accel.calibrate_accel()
 
     ser.printf(@"Activity threshold: %dug\n\r", accel.act_thresh())
     ser.printf(@"Inactivity threshold: %dug\n\r", accel.inact_thresh())

@@ -54,10 +54,10 @@ PUB main() | intsource
     ' When the sensor detects free-fall, a message is displayed and
     '   is cleared after the user presses a key
     ' The preset for free-fall detection sets a free-fall threshold of
-    '   0.315g's for a minimum time of 100ms. This can be tuned using
+    '   0.600g's for a minimum time of 100ms. This can be tuned using
     '   accel.freefall_sethresh() and accel.freefall_set_time():
-    accel.freefall_set_thresh(0_315000)         ' 0.315g's
-    accel.freefall_set_time(100_000)            ' 100_000us/100ms
+    accel.freefall_set_thresh(0_600000)         ' 0.600g's (0_300000-0_600000 recommended)
+    accel.freefall_set_time(100_000)            ' 100_000us/100ms (100_000..300_000 recommended)
 
     repeat
         if ( _intflag )                         ' interrupt triggered?

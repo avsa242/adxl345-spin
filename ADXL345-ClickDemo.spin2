@@ -73,11 +73,10 @@ PRI cog_show_click_status()
 
 PRI yesno(val): resp
 ' Return pointer to string "Yes" or "No" depending on value called with
-    case abs(val)
-        0:
-            return @"No "
-        1:
-            return @"Yes"
+    if ( val )
+        return @"Yes"
+    else
+        return @"No "
 
 
 PUB setup()

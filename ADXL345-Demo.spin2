@@ -2,6 +2,7 @@
 ----------------------------------------------------------------------------------------------------
     Filename:       ADXL345-Demo.spin2
     Description:    Demo of the ADXL345 driver
+        * accelerometer data output
     Author:         Jesse Burt
     Started:        Mar 14, 2020
     Updated:        Nov 25, 2026

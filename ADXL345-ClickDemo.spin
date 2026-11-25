@@ -73,9 +73,10 @@ PRI cog_show_click_status()
 ' Secondary cog to display click status
     repeat
         ser.pos_xy(0, 3)
-        ser.printf2(@"Double-clicked:  %s (%d)\n\r", yesno(_dclicked), _d_cnt)
-        ser.printf2(@"Single-clicked:  %s (%d)\n\r", yesno(_sclicked), _s_cnt)
+        ser.printf(@"Double-clicked:  %s (%d)\n\r", yesno(_dclicked), _d_cnt)
+        ser.printf(@"Single-clicked:  %s (%d)\n\r", yesno(_sclicked), _s_cnt)
         _dclicked := _sclicked := false
+
         ' wait for double-click window time to elapse, so the display doesn't
         '   update too fast to be seen
         time.msleep(_dc_wind)
@@ -83,11 +84,10 @@ PRI cog_show_click_status()
 
 PRI yesno(val): resp
 ' Return pointer to string "Yes" or "No" depending on value called with
-    case ||(val)
-        0:
-            return @"No "
-        1:
-            return @"Yes"
+    if ( val )
+        return @"Yes"
+    else
+        return @"No "
 
 
 PUB setup()
