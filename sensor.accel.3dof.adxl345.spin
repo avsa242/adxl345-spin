@@ -4,8 +4,8 @@
     Description:    Driver for the Analog Devices ADXL343, 345 3DoF Accelerometer
     Author:         Jesse Burt
     Started:        Mar 14, 2020
-    Updated:        Jun 21, 2024
-    Copyright (c) 2024 - See end of file for terms of use.
+    Updated:        Nov 25, 2026
+    Copyright (c) 2026 - See end of file for terms of use.
 ----------------------------------------------------------------------------------------------------
 }
 
@@ -210,6 +210,7 @@ PUB defaults()
 PUB preset_active()
 ' Like defaults(), but sensor measurement active
     defaults()
+    auto_sleep_ena(false)
     accel_opmode(MEAS)
 
 
@@ -956,7 +957,7 @@ PRI writereg(reg_nr, nr_bytes, ptr_buff) | cmd_pkt
 
 DAT
 {
-Copyright 2024 Jesse Burt
+Copyright 2026 Jesse Burt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
